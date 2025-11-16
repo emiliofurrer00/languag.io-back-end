@@ -20,4 +20,14 @@ public class DeckRepository : IDeckRepository
             .OrderByDescending(d => d.CreatedAtUtc)
             .ToListAsync(ct);
     }
+
+    public async Task AddAsync(Deck deck, CancellationToken ct = default)
+    {
+        await _dbContext.Decks.AddAsync(deck, ct);
+    }
+
+    public async Task SaveChangesAsync(CancellationToken ct = default)
+    {
+        await _dbContext.SaveChangesAsync(ct);
+    }
 }
