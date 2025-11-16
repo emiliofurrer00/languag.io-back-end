@@ -5,4 +5,5 @@ namespace Languag.io.Application.Decks;
 public interface IDeckService
 {
     Task<IEnumerable<Deck>> GetPublicDecksAsync(CancellationToken ct = default);
+    Task<Guid> CreateDeckAsync(CreateDeckCommand command, Guid ownerId, CancellationToken ct = default);
 }
