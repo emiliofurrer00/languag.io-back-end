@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <File Path=".gitignore" />
+    <Project Path="src/Languag.io.Api/Languag.io.Api.csproj" />
+    <Project Path="src/Languag.io.Application/Languag.io.Application.csproj" />
+    <Project Path="src/Languag.io.Domain/Languag.io.Domain.csproj" />
+    <Project Path="src/Languag.io.Infrastructure/Languag.io.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Languag.io.Tests/Languag.io.Tests.csproj" />
+  </Folder>
+</Solution>
