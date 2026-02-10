@@ -1,5 +1,7 @@
 using Languag.io.Application;
 using Languag.io.Infrastructure;
+using Languag.io.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +21,14 @@ builder.Services.AddCors();
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+// Run migrations at startup
+// Might want to gate this with an env var later
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 app.UseCors(
     options => options.WithOrigins(["http://localhost:3000", "https://languagio.vercel.app"]).AllowAnyHeader().AllowAnyMethod()
