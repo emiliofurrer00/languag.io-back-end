@@ -11,7 +11,7 @@ services:
     ports:
       - "80:80"
     environment:
-      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_URLS=http://+:${PORT}
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       # Map the ConnectionStrings:DefaultConnection configuration value to an env var
       # Use `ConnectionStrings__DefaultConnection` (double underscore) so ASP.NET maps it
