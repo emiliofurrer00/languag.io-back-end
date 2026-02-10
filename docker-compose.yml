@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  languagio-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DOTNET_VERSION: "10.0"
+    image: languagio-api:latest
+    ports:
+      - "80:80"
+    environment:
+      - ASPNETCORE_URLS=http://+:80
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      # Map the ConnectionStrings:DefaultConnection configuration value to an env var
+      # Use `ConnectionStrings__DefaultConnection` (double underscore) so ASP.NET maps it
+      - ConnectionStrings__DefaultConnection=${DEFAULT_CONNECTION}
+    restart: unless-stopped
