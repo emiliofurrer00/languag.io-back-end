@@ -44,6 +44,24 @@ public class DeckService : IDeckService
     {
         return await _deckRepository.GetDeckByIdAsync(deckId, ct);
     }
+
+    public async Task<bool> UpdateDeckAsync(UpdateDeckCommand command, Guid ownerId, CancellationToken ct = default)
+    {
+        var deck = await _deckRepository.GetDeckByIdAsync(command.Id, ct);
+        if (deck == null || deck.OwnerId != ownerId)
+        {
+            return false; // Deck not found or user is not the owner
+        }
+        deck.Title = command.Title;
+        deck.Description = command.Description;
+        deck.Category = command.Category;
+        deck.Color = command.Color;
+        deck.Visibility = command.Visibility;
+        deck.UpdatedAtUtc = DateTime.UtcNow;
+        await _deckRepository.UpdateAsync(deck);
+        await _deckRepository.SaveChangesAsync(ct);
+        return true;
+    }
 }
 
 

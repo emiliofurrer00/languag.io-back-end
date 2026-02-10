@@ -9,4 +9,5 @@ public interface IDeckRepository
     Task AddAsync(Deck deck, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
     Task<Deck> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default);
+    Task UpdateAsync(Deck deck, CancellationToken ct = default);
 }

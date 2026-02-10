@@ -37,4 +37,10 @@ public class DeckRepository : IDeckRepository
             .Include(d => d.Cards)
             .FirstOrDefaultAsync(d => d.Id == deckId, ct);
     }
+
+    public async Task UpdateAsync(Deck deck, CancellationToken ct = default)
+    {
+        _dbContext.Decks.Update(deck);
+        await _dbContext.SaveChangesAsync(ct);
+    }
 }

@@ -42,6 +42,28 @@ public class DecksController : ControllerBase
         return CreatedAtAction(nameof(GetPublicDecks), new { id = deckId }, deckId);
     }
 
+    // PUT: api/decks/{id}
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateDeck([FromRoute] string id, [FromBody] UpdateDeckRequest request, CancellationToken ct)
+    {
+        // Mock Id, replace with authenticated user id later
+        var userId = Guid.NewGuid();
+        var command = new UpdateDeckCommand(
+            Id: Guid.Parse(id),
+            Title: request.Title,
+            Description: request.Description,
+            Category: request.Category,
+            Color: request.Color,
+            Visibility: request.Visibility
+        );
+        var result = await _deckService.UpdateDeckAsync(command, userId, ct);
+        if (!result)
+        {
+            return NotFound();
+        }
+        return NoContent();
+    }
+
     // GET: api/decks/{id}
     [HttpGet("{id}")]
     public async Task<IActionResult> GetDeckById([FromRoute] string id, CancellationToken ct)
