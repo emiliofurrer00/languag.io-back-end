@@ -27,7 +27,8 @@ public class DeckService : IDeckService
             Title = command.Title,
             OwnerId = ownerId,
             Description = command.Description,
-            LanguageCode = command.LanguageCode,
+            Category = command.Category,
+            Color = command.Color,
             Visibility = command.Visibility,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
@@ -37,6 +38,11 @@ public class DeckService : IDeckService
         await _deckRepository.SaveChangesAsync(ct);
 
         return newDeck.Id;
+    }
+
+    public async Task<Deck?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
+    {
+        return await _deckRepository.GetDeckByIdAsync(deckId, ct);
     }
 }
 

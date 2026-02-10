@@ -32,7 +32,8 @@ public class DecksController : ControllerBase
         var command = new CreateDeckCommand(
             Title: request.Title,
             Description: request.Description,
-            LanguageCode: request.LanguageCode,
+            Category: request.Category,
+            Color: request.Color,
             Visibility: request.Visibility
         );
 
@@ -41,4 +42,15 @@ public class DecksController : ControllerBase
         return CreatedAtAction(nameof(GetPublicDecks), new { id = deckId }, deckId);
     }
 
+    // GET: api/decks/{id}
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetDeckById([FromRoute] string id, CancellationToken ct)
+    {
+        var deck = await _deckService.GetDeckByIdAsync(Guid.Parse(id), ct);
+        if (deck == null)
+        {
+            return NotFound();
+        }
+        return Ok(deck);
+    }
 }
