@@ -30,4 +30,11 @@ public class DeckRepository : IDeckRepository
     {
         await _dbContext.SaveChangesAsync(ct);
     }
+
+    public async Task<Deck?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
+    {
+        return await _dbContext.Decks
+            .Include(d => d.Cards)
+            .FirstOrDefaultAsync(d => d.Id == deckId, ct);
+    }
 }
