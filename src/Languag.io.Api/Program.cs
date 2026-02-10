@@ -8,15 +8,21 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen( c =>
 {
     c.SwaggerDoc("v1", new() { Title = "Languag.io API", Version = "v1" });
 });
+builder.Services.AddCors();
+
+builder.Services.AddControllers();
 
 var app = builder.Build();
+
+app.UseCors(
+    options => options.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod()
+);
 
 if (app.Environment.IsDevelopment())
 {
@@ -27,7 +33,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // later: app.UseAuthentication();
 app.UseAuthorization();
