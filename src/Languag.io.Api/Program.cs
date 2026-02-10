@@ -21,7 +21,7 @@ builder.Services.AddControllers();
 var app = builder.Build();
 
 app.UseCors(
-    options => options.WithOrigins("http://localhost:3000").AllowAnyHeader().AllowAnyMethod()
+    options => options.WithOrigins(["http://localhost:3000", "https://languagio.vercel.app"]).AllowAnyHeader().AllowAnyMethod()
 );
 
 if (app.Environment.IsDevelopment())
