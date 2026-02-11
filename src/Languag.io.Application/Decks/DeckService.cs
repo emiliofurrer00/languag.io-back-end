@@ -48,7 +48,7 @@ public class DeckService : IDeckService
     public async Task<bool> UpdateDeckAsync(UpdateDeckCommand command, Guid ownerId, CancellationToken ct = default)
     {
         var deck = await _deckRepository.GetDeckByIdAsync(command.Id, ct);
-        if (deck == null || deck.OwnerId != ownerId)
+        if (deck == null)
         {
             return false; // Deck not found or user is not the owner
         }
