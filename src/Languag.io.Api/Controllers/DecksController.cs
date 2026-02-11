@@ -1,6 +1,7 @@
 ﻿using Languag.io.Application.Decks;
 using Microsoft.AspNetCore.Mvc;
 using Languag.io.Api.Contracts.Decks;
+using Languag.io.Api.Contracts.Webhooks;
 
 namespace Languag.io.Api.Controllers;
 
@@ -81,16 +82,39 @@ public class DecksController : ControllerBase
 
     // POST: api/decks/users
     [HttpPost("users")]
-    public async Task<IActionResult> UserEventWebhook(WebhookRequest requestBody) {
-        var data = requestBody.data;
-        var type = Request.Headers["X-Event-Type"].ToString();
-        Console.WriteLine("Object data: ");
-        Console.WriteLine(data);
-        Console.WriteLine("Event type: " + type);
+    public async Task<IActionResult> UserEventWebhook(WebhookEnvelope envelope) {
+            var evt = envelope.Data;
 
-        return Ok();
-    }
+            switch (evt.Type)
+            {
+                case "user.created":
+                    {
+                        var user = evt.Payload;
 
+                        var primaryEmail = user.EmailAddresses
+                            .OrderByDescending(e => e.Id == user.PrimaryEmailAddressId)
+                            .Select(e => e.Email)
+                            .FirstOrDefault();
+
+                        Console.Write(
+                            "user.created => id={UserId}, email={Email}, name={First} {Last}, ip={Ip}",
+                            user.Id,
+                            primaryEmail,
+                            user.FirstName,
+                            user.LastName,
+                            evt.EventAttributes?.HttpRequest?.ClientIp
+                        );
+
+                        // TODO: do your real work here (save to DB, enqueue job, etc.)
+                        break;
+                    }
+
+                default:
+                    Console.Write("Unhandled webhook type: {Type}", evt.Type);
+                    break;
+            }
+
+            return Ok();
     public class WebhookRequest
     {
         public object data { get; set; }
