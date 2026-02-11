@@ -75,4 +75,18 @@ public class DecksController : ControllerBase
         }
         return Ok(deck);
     }
+
+    // Temp test webhook endpoint
+    // TODO: Refactor and move out of this controller
+
+    // POST: api/decks/users
+    [HttpPost("users")]
+    public async Task<IActionResult> UserEventWebhook([FromBody] object data, [FromBody] string type) {
+        Console.WriteLine("Object data: ");
+        Console.WriteLine(data);
+        Console.WriteLine("Event type: " + type);
+
+        return Ok();
+    }
+
 }

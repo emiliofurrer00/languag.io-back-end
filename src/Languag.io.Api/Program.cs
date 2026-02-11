@@ -31,7 +31,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors(
-    options => options.WithOrigins(["http://localhost:3000", "https://languagio.vercel.app"]).AllowAnyHeader().AllowAnyMethod()
+    options => options.WithOrigins(["http://localhost:3000", "https://languagio.vercel.app", "52.215.16.239", "54.216.8.72", "63.33.109.123", "2a05:d028:17:8000::/56"]).AllowAnyHeader().AllowAnyMethod()
 );
 
 if (app.Environment.IsDevelopment())
