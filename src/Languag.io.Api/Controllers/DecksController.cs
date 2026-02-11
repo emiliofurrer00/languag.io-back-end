@@ -115,9 +115,5 @@ public class DecksController : ControllerBase
             }
 
             return Ok();
-    public class WebhookRequest
-    {
-        public object data { get; set; }
-        public string @event { get; set; }
     }
 }
