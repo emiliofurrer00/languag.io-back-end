@@ -81,7 +81,9 @@ public class DecksController : ControllerBase
 
     // POST: api/decks/users
     [HttpPost("users")]
-    public async Task<IActionResult> UserEventWebhook([FromBody] object data, [FromBody] string type) {
+    public async Task<IActionResult> UserEventWebhook(WebhookRequest requestBody) {
+        var data = requestBody.data;
+        var type = Request.Headers["X-Event-Type"].ToString();
         Console.WriteLine("Object data: ");
         Console.WriteLine(data);
         Console.WriteLine("Event type: " + type);
@@ -89,4 +91,9 @@ public class DecksController : ControllerBase
         return Ok();
     }
 
+    public class WebhookRequest
+    {
+        public object data { get; set; }
+        public string @event { get; set; }
+    }
 }
