@@ -62,20 +62,40 @@ public class DeckService : IDeckService
     public async Task<bool> UpdateDeckAsync(UpdateDeckCommand command, Guid ownerId, CancellationToken ct = default)
     {
         var deck = await _deckRepository.GetDeckByIdForUpdateAsync(command.Id, ct);
-        if (deck == null)
-        {
-            return false; // Deck not found or user is not the owner
-        }
+        if (deck is null) return false;
+
+        var now = DateTime.UtcNow;
+
         deck.Title = command.Title;
         deck.Description = command.Description;
         deck.Category = command.Category;
         deck.Color = command.Color;
         deck.Visibility = command.Visibility;
-        deck.UpdatedAtUtc = DateTime.UtcNow;
+        deck.UpdatedAtUtc = now;
+
+        // Set-based delete (no tracked cards exist now)
+        await _deckRepository.DeleteCardsByDeckIdAsync(deck.Id, ct);
+
+        // Insert new cards (ignore incoming ids)
+        foreach (var dto in command.Cards.OrderBy(c => c.Order))
+        {
+            await _deckRepository.AddCardAsync(new Card
+            {
+                Id = Guid.NewGuid(),
+                DeckId = deck.Id,
+                FrontText = dto.FrontText,
+                BackText = dto.BackText,
+                Order = dto.Order,
+                ExampleSentence = dto.ExampleSentence,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            }, ct);
+        }
 
         await _deckRepository.SaveChangesAsync(ct);
         return true;
     }
+
 }
 
 

@@ -7,4 +7,5 @@ public record UpdateDeckCommand (
     string? Description,
     string Category,
     string? Color,
-    DeckVisibility Visibility);
+    DeckVisibility Visibility,
+    List<Card> Cards);

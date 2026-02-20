@@ -17,7 +17,6 @@ public class DeckRepository : IDeckRepository
     {
         return await _dbContext.Decks
             .Where(d => d.Visibility == DeckVisibility.Public)
-            .Include(d => d.Cards)
             .Select(d => new DeckDto(
                 d.Id,
                 d.Title,
@@ -40,7 +39,15 @@ public class DeckRepository : IDeckRepository
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
-        await _dbContext.SaveChangesAsync(ct);
+        try
+        {
+            await _dbContext.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            var types = ex.Entries.Select(e => e.Entity.GetType().Name).ToArray();
+            throw new Exception("Concurrency conflict on: " + string.Join(", ", types), ex);
+        }
     }
 
     public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
@@ -48,7 +55,6 @@ public class DeckRepository : IDeckRepository
         return await _dbContext.Decks
             .AsNoTracking()
             .Where(d => d.Id == deckId)
-            .Include(d => d.Cards)
             .Select(d => new DeckDto(
                 d.Id,
                 d.Title,
@@ -67,12 +73,24 @@ public class DeckRepository : IDeckRepository
     public async Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, CancellationToken ct = default)
     {
         return await _dbContext.Decks
-            .Include(d => d.Cards)
             .FirstOrDefaultAsync(d => d.Id == deckId, ct);
     }
-    public async Task UpdateAsync(Deck deck, CancellationToken ct = default)
+
+    public void RemoveCards(IEnumerable<Card> cards)
     {
-        _dbContext.Decks.Update(deck);
-        await _dbContext.SaveChangesAsync(ct);
+        _dbContext.Cards.RemoveRange(cards);
     }
+
+    public Task DeleteCardsByDeckIdAsync(Guid deckId, CancellationToken ct)
+    {
+        return _dbContext.Cards
+            .Where(c => c.DeckId == deckId)
+            .ExecuteDeleteAsync(ct);
+    }
+
+    public Task<bool> DeckExistsAsync(Guid deckId, CancellationToken ct) =>
+    _dbContext.Decks.AnyAsync(d => d.Id == deckId, ct);
+
+    public async Task AddCardAsync(Card card, CancellationToken ct) =>
+        await _dbContext.Cards.AddAsync(card, ct);
 }
