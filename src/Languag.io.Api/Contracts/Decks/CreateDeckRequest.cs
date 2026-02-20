@@ -9,4 +9,5 @@ public class CreateDeckRequest
     public string Category { get; set; } = string.Empty;
     public string Color { get; set; } = "teal";
     public DeckVisibility Visibility { get; set; } = DeckVisibility.Private;
+    public List<Card> Cards { get; set; } = [];
 }
