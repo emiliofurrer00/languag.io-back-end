@@ -35,7 +35,8 @@ public class DecksController : ControllerBase
             Description: request.Description,
             Category: request.Category,
             Color: request.Color,
-            Visibility: request.Visibility
+            Visibility: request.Visibility,
+            Cards: request.Cards
         );
 
         var deckId = await _deckService.CreateDeckAsync(command, userId, ct);
