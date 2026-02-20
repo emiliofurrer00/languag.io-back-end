@@ -1,4 +1,5 @@
-﻿using Languag.io.Application.Decks;
+﻿using Languag.io.Api.Contracts.Decks;
+using Languag.io.Application.Decks;
 using Languag.io.Domain.Entities;
 using Languag.io.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -12,12 +13,23 @@ public class DeckRepository : IDeckRepository
     {
         _dbContext = dbContext;
     }
-    public async Task<IReadOnlyList<Deck>> GetPublicDecksAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default)
     {
         return await _dbContext.Decks
             .Where(d => d.Visibility == DeckVisibility.Public)
             .Include(d => d.Cards)
-            .OrderByDescending(d => d.CreatedAtUtc)
+            .Select(d => new DeckDto(
+                d.Id,
+                d.Title,
+                d.Category,
+                d.Description,
+                d.Visibility,
+                d.Color,
+                d.Cards
+                    .OrderBy(c => c.Order)
+                    .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
+                    .ToList()
+            ))
             .ToListAsync(ct);
     }
 
@@ -31,13 +43,33 @@ public class DeckRepository : IDeckRepository
         await _dbContext.SaveChangesAsync(ct);
     }
 
-    public async Task<Deck?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
+    public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
+    {
+        return await _dbContext.Decks
+            .AsNoTracking()
+            .Where(d => d.Id == deckId)
+            .Include(d => d.Cards)
+            .Select(d => new DeckDto(
+                d.Id,
+                d.Title,
+                d.Category,
+                d.Description,
+                d.Visibility,
+                d.Color,
+                d.Cards
+                    .OrderBy(c => c.Order)
+                    .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
+                    .ToList()
+             ))
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, CancellationToken ct = default)
     {
         return await _dbContext.Decks
             .Include(d => d.Cards)
             .FirstOrDefaultAsync(d => d.Id == deckId, ct);
     }
-
     public async Task UpdateAsync(Deck deck, CancellationToken ct = default)
     {
         _dbContext.Decks.Update(deck);

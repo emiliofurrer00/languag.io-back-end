@@ -1,5 +1,6 @@
 ﻿using Languag.io.Domain.Entities;
 using Languag.io.Application.Decks;
+using Languag.io.Api.Contracts.Decks;
 
 namespace Languag.io.Application.Decks;
 
@@ -12,7 +13,7 @@ public class DeckService : IDeckService
         _deckRepository = deckRepository;
     }
 
-    public async Task<IEnumerable<Deck>> GetPublicDecksAsync(CancellationToken ct = default)
+    public async Task<IEnumerable<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default)
     {
         return await _deckRepository.GetPublicDecksAsync(ct);
     }
@@ -34,20 +35,33 @@ public class DeckService : IDeckService
             UpdatedAtUtc = now
         };
 
+        Card[] cards = command.Cards.Select(c => new Card
+        {
+            Id = Guid.NewGuid(),
+            DeckId = newDeck.Id,
+            FrontText = c.FrontText,
+            BackText = c.BackText,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        }).ToArray();
+
+        newDeck.Cards = cards.ToList();
+
+
         await _deckRepository.AddAsync(newDeck, ct);
         await _deckRepository.SaveChangesAsync(ct);
 
         return newDeck.Id;
     }
 
-    public async Task<Deck?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
+    public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
     {
         return await _deckRepository.GetDeckByIdAsync(deckId, ct);
     }
 
     public async Task<bool> UpdateDeckAsync(UpdateDeckCommand command, Guid ownerId, CancellationToken ct = default)
     {
-        var deck = await _deckRepository.GetDeckByIdAsync(command.Id, ct);
+        var deck = await _deckRepository.GetDeckByIdForUpdateAsync(command.Id, ct);
         if (deck == null)
         {
             return false; // Deck not found or user is not the owner
@@ -58,7 +72,7 @@ public class DeckService : IDeckService
         deck.Color = command.Color;
         deck.Visibility = command.Visibility;
         deck.UpdatedAtUtc = DateTime.UtcNow;
-        await _deckRepository.UpdateAsync(deck);
+
         await _deckRepository.SaveChangesAsync(ct);
         return true;
     }
