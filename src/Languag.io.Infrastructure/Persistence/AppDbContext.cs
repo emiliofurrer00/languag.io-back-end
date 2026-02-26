@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<Card> Cards => Set<Card>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +27,12 @@ public class AppDbContext : DbContext
                    .WithOne(c => c.Deck!)
                    .HasForeignKey(c => c.DeckId)
                    .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(d => d.User)
+                   .WithMany(u => u.Decks)
+                   .HasForeignKey(u => u.OwnerId)
+                   .OnDelete(DeleteBehavior.Cascade)
+                   .IsRequired(false);
         });
 
         modelBuilder.Entity<Card>(builder =>
@@ -33,6 +40,12 @@ public class AppDbContext : DbContext
             builder.HasKey(c => c.Id);
             builder.Property(c => c.FrontText).IsRequired();
             builder.Property(c => c.BackText).IsRequired();
+        });
+
+        modelBuilder.Entity<User>(builder => {
+            builder.HasKey(u => u.Id);
+            builder.Property(u => u.Name).HasMaxLength(100);
+            builder.Property(u => u.Email).HasMaxLength(255);
         });
     }
 }
