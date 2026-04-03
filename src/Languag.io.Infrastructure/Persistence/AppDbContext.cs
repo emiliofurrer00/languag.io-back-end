@@ -44,8 +44,10 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<User>(builder => {
             builder.HasKey(u => u.Id);
+            builder.Property(u => u.ExternalId).IsRequired().HasMaxLength(255);
             builder.Property(u => u.Name).HasMaxLength(100);
             builder.Property(u => u.Email).HasMaxLength(255);
+            builder.HasIndex(u => u.ExternalId).IsUnique();
         });
     }
 }
