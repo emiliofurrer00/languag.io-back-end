@@ -17,32 +17,10 @@ public class DeckRepository : IDeckRepository
     {
         return await _dbContext.Decks
             .Where(d => d.Visibility == DeckVisibility.Public)
-            .OrderByDescending(d => d.UpdatedAtUtc)
             .Select(d => new DeckDto(
                 d.Id,
                 d.Title,
-                d.Category ?? string.Empty,
-                d.Description,
-                d.Visibility,
-                d.Color,
-                d.Cards
-                    .OrderBy(c => c.Order)
-                    .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
-                    .ToList()
-            ))
-            .ToListAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, CancellationToken ct = default)
-    {
-        return await _dbContext.Decks
-            .AsNoTracking()
-            .Where(d => d.OwnerId == ownerId || d.Visibility == DeckVisibility.Public)
-            .OrderByDescending(d => d.UpdatedAtUtc)
-            .Select(d => new DeckDto(
-                d.Id,
-                d.Title,
-                d.Category ?? string.Empty,
+                d.Category,
                 d.Description,
                 d.Visibility,
                 d.Color,
@@ -72,16 +50,15 @@ public class DeckRepository : IDeckRepository
         }
     }
 
-    public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, Guid? ownerId, CancellationToken ct = default)
+    public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
     {
         return await _dbContext.Decks
             .AsNoTracking()
             .Where(d => d.Id == deckId)
-            .Where(d => d.Visibility == DeckVisibility.Public || (ownerId.HasValue && d.OwnerId == ownerId.Value))
             .Select(d => new DeckDto(
                 d.Id,
                 d.Title,
-                d.Category ?? string.Empty,
+                d.Category,
                 d.Description,
                 d.Visibility,
                 d.Color,
@@ -93,10 +70,10 @@ public class DeckRepository : IDeckRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default)
+    public async Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, CancellationToken ct = default)
     {
         return await _dbContext.Decks
-            .FirstOrDefaultAsync(d => d.Id == deckId && d.OwnerId == ownerId, ct);
+            .FirstOrDefaultAsync(d => d.Id == deckId, ct);
     }
 
     public void RemoveCards(IEnumerable<Card> cards)

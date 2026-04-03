@@ -18,9 +18,4 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Languag.io.Api\Languag.io.Api.csproj" />
-    <ProjectReference Include="..\..\src\Languag.io.Application\Languag.io.Application.csproj" />
-  </ItemGroup>
-
 </Project>
