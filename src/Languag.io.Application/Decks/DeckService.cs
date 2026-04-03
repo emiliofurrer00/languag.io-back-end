@@ -18,6 +18,11 @@ public class DeckService : IDeckService
         return await _deckRepository.GetPublicDecksAsync(ct);
     }
 
+    public async Task<IEnumerable<DeckDto>> GetVisibleDecksAsync(Guid ownerId, CancellationToken ct = default)
+    {
+        return await _deckRepository.GetVisibleDecksAsync(ownerId, ct);
+    }
+
     public async Task<Guid> CreateDeckAsync(CreateDeckCommand command, Guid ownerId, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
@@ -41,6 +46,8 @@ public class DeckService : IDeckService
             DeckId = newDeck.Id,
             FrontText = c.FrontText,
             BackText = c.BackText,
+            ExampleSentence = c.ExampleSentence,
+            Order = c.Order,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         }).ToArray();
@@ -54,14 +61,14 @@ public class DeckService : IDeckService
         return newDeck.Id;
     }
 
-    public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, CancellationToken ct = default)
+    public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, Guid? ownerId, CancellationToken ct = default)
     {
-        return await _deckRepository.GetDeckByIdAsync(deckId, ct);
+        return await _deckRepository.GetDeckByIdAsync(deckId, ownerId, ct);
     }
 
     public async Task<bool> UpdateDeckAsync(UpdateDeckCommand command, Guid ownerId, CancellationToken ct = default)
     {
-        var deck = await _deckRepository.GetDeckByIdForUpdateAsync(command.Id, ct);
+        var deck = await _deckRepository.GetDeckByIdForUpdateAsync(command.Id, ownerId, ct);
         if (deck is null) return false;
 
         var now = DateTime.UtcNow;
