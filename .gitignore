@@ -275,6 +275,10 @@ paket-files/
 __pycache__/
 *.pyc
 
+# Local CLI/build artifacts
+src/.buildverify/
+src/.dotnet/
+
 # Cake - Uncomment if you are using it
 # tools/**
 # !tools/packages.config
