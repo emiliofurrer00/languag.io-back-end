@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Languag.io.Application.Decks;
+using Languag.io.Application.Users;
 using Languag.io.Infrastructure.Repositories;
+using Languag.io.Infrastructure.Users;
 
 namespace Languag.io.Infrastructure;
 
@@ -20,6 +22,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         services.AddScoped<IDeckRepository, DeckRepository>();
+        services.AddScoped<IUserIdentityService, UserIdentityService>();
         // later: repositories, external services etc.
         return services;
     }
