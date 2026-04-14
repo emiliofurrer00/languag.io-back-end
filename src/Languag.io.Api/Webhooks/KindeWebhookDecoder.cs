@@ -3,10 +3,10 @@ using System.Text.Json;
 using Languag.io.Api.Auth;
 using Languag.io.Api.Contracts.Webhooks;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Languag.io.Api.Webhooks;
 
@@ -17,11 +17,9 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly JsonWebTokenHandler _tokenHandler = new();
+    private readonly JwtSecurityTokenHandler _tokenHandler = new();
     private readonly ConfigurationManager<OpenIdConnectConfiguration> _configurationManager;
     private readonly ILogger<KindeWebhookDecoder> _logger;
-    private readonly string[] _validIssuers;
-
     public KindeWebhookDecoder(IOptions<KindeJwtOptions> kindeOptions, ILogger<KindeWebhookDecoder> logger)
     {
         var authority = kindeOptions.Value.Authority?.Trim().TrimEnd('/');
@@ -30,7 +28,6 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
             throw new InvalidOperationException("Authentication:Kinde:Authority must be configured to decode Kinde webhooks.");
         }
 
-        _validIssuers = [authority, $"{authority}/"];
         _logger = logger;
         _configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
             $"{authority}/.well-known/openid-configuration",
@@ -57,8 +54,10 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
 
         var validation = await _tokenHandler.ValidateTokenAsync(jwt, new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidIssuers = _validIssuers,
+            // Kinde webhook JWTs are documented as signed event envelopes, not API/user access tokens.
+            // In production we have seen webhook tokens without a standard `iss` claim, so signature
+            // verification against Kinde's JWKS is the reliable authenticity check here.
+            ValidateIssuer = false,
             ValidateAudience = false,
             ValidateLifetime = false,
             RequireExpirationTime = false,

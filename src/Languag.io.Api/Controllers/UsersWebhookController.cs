@@ -73,7 +73,15 @@ public sealed class UsersWebhookController : ControllerBase
     {
         if (mediaType == "application/json")
         {
-            return JsonSerializer.Deserialize<WebhookEnvelope>(rawBody, SerializerOptions);
+            try
+            {
+                return JsonSerializer.Deserialize<WebhookEnvelope>(rawBody, SerializerOptions);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse Kinde webhook JSON payload.");
+                return null;
+            }
         }
 
         if (mediaType is null || mediaType == "application/jwt" || mediaType == "text/plain" || LooksLikeJwt(rawBody))
@@ -88,7 +96,15 @@ public sealed class UsersWebhookController : ControllerBase
             return decodeResult.Payload;
         }
 
-        return null;
+        try
+        {
+            return JsonSerializer.Deserialize<WebhookEnvelope>(rawBody, SerializerOptions);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse fallback Kinde webhook payload.");
+            return null;
+        }
     }
 
     private async Task HandleEventAsync(WebhookEnvelope payload, string? requestId, CancellationToken ct)
