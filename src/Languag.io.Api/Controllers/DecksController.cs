@@ -1,6 +1,5 @@
 using Languag.io.Api.Auth;
 using Languag.io.Api.Contracts.Decks;
-using Languag.io.Api.Contracts.Webhooks;
 using Languag.io.Application.Decks;
 using Languag.io.Application.Users;
 using Microsoft.AspNetCore.Authorization;
@@ -123,48 +122,6 @@ public class DecksController : ControllerBase
 
         return Ok(deck);
     }
-
-    // Temp test webhook endpoint
-    // TODO: Refactor and move out of this controller
-
-    // POST: api/decks/users
-    [HttpPost("users")]
-    public IActionResult UserEventWebhook(WebhookEnvelope envelope)
-    {
-        var evt = envelope.Data;
-
-        switch (evt.Type)
-        {
-            case "user.created":
-            {
-                var user = evt.Payload;
-
-                var primaryEmail = user.EmailAddresses
-                    .OrderByDescending(e => e.Id == user.PrimaryEmailAddressId)
-                    .Select(e => e.Email)
-                    .FirstOrDefault();
-
-                Console.Write(
-                    "user.created => id={UserId}, email={Email}, name={First} {Last}, ip={Ip}",
-                    user.Id,
-                    primaryEmail,
-                    user.FirstName,
-                    user.LastName,
-                    evt.EventAttributes?.HttpRequest?.ClientIp
-                );
-
-                // TODO: do your real work here (save to DB, enqueue job, etc.)
-                break;
-            }
-
-            default:
-                Console.Write("Unhandled webhook type: {Type}", evt.Type);
-                break;
-        }
-
-        return Ok();
-    }
-
     private async Task<Guid?> GetCurrentUserIdAsync(CancellationToken ct)
     {
         var currentUser = User.ToAuthenticatedUser();
