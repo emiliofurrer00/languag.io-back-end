@@ -1,9 +1,10 @@
 using System.Security.Claims;
 using System.Text.Json;
 using Languag.io.Api.Auth;
-using Languag.io.Api.Contracts.Webhooks;
 using Languag.io.Api.Contracts.Decks;
+using Languag.io.Api.Contracts.Webhooks;
 using Languag.io.Application.Decks;
+using Languag.io.Application.Users;
 using Languag.io.Domain.Entities;
 
 namespace Languag.io.Tests;
@@ -106,6 +107,25 @@ public class AuthAndDeckServiceTests
         Assert.Single(payload.Data?.User?.Organizations ?? []);
     }
 
+    [Fact]
+    public async Task UserProfileService_ReturnsProfileFromRepository()
+    {
+        var expected = new UserProfileDto(
+            Guid.NewGuid(),
+            "kp_123",
+            "Ada Lovelace",
+            "ada@example.com",
+            "Linguist and builder",
+            "I like language learning products.",
+            true);
+
+        var service = new UserProfileService(new StubUserProfileRepository(expected));
+
+        var profile = await service.GetByIdAsync(expected.Id);
+
+        Assert.Equal(expected, profile);
+    }
+
     private sealed class CapturingDeckRepository : IDeckRepository
     {
         public Deck? AddedDeck { get; private set; }
@@ -161,6 +181,21 @@ public class AuthAndDeckServiceTests
         public Task<bool> DeckExistsAsync(Guid deckId, CancellationToken ct = default)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    private sealed class StubUserProfileRepository : IUserProfileRepository
+    {
+        private readonly UserProfileDto _profile;
+
+        public StubUserProfileRepository(UserProfileDto profile)
+        {
+            _profile = profile;
+        }
+
+        public Task<UserProfileDto?> GetByIdAsync(Guid userId, CancellationToken ct = default)
+        {
+            return Task.FromResult<UserProfileDto?>(_profile with { Id = userId });
         }
     }
 }
