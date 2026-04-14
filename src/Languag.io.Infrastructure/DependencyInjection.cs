@@ -23,6 +23,7 @@ public static class DependencyInjection
 
         services.AddScoped<IDeckRepository, DeckRepository>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();
+        services.AddScoped<IUserProfileRepository, UserProfileRepository>();
         // later: repositories, external services etc.
         return services;
     }
