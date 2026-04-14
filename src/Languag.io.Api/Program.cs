@@ -29,7 +29,7 @@ builder.Services
     {
         options.Authority = kindeOptions.Authority;
         options.Audience = kindeOptions.Audience;
-        options.IncludeErrorDetails = builder.Environment.IsDevelopment();
+        options.IncludeErrorDetails = true; //builder.Environment.IsDevelopment();
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
