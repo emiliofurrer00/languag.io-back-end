@@ -1,4 +1,5 @@
 using Languag.io.Api.Auth;
+using Languag.io.Api.Webhooks;
 using Languag.io.Application;
 using Languag.io.Infrastructure;
 using Languag.io.Infrastructure.Persistence;
@@ -13,6 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IKindeWebhookDecoder, KindeWebhookDecoder>();
 builder.Services.Configure<KindeJwtOptions>(builder.Configuration.GetSection(KindeJwtOptions.SectionName));
 
 var kindeOptions = builder.Configuration.GetSection(KindeJwtOptions.SectionName).Get<KindeJwtOptions>() ?? new KindeJwtOptions();
