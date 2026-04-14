@@ -6,6 +6,9 @@ public class User
     public string ExternalId { get; set; } = string.Empty;
     public string? Name { get; set; } = "";
     public string? Email { get; set; } = "";
+    public string ProfileDescription { get; set; } = string.Empty;
+    public string About { get; set; } = string.Empty;
+    public bool IsPublicProfile { get; set; }
     public List<Deck> Decks { get; set; } = new List<Deck>();
 
 }
