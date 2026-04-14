@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Languag.io.Api.Auth;
+using Languag.io.Api.Contracts.Webhooks;
 using Languag.io.Api.Contracts.Decks;
 using Languag.io.Application.Decks;
 using Languag.io.Domain.Entities;
@@ -60,6 +62,48 @@ public class AuthAndDeckServiceTests
         Assert.Equal(3, repository.AddedDeck.Cards[0].Order);
         Assert.Equal(repository.AddedDeck.Id, repository.AddedDeck.Cards[0].DeckId);
         Assert.True(repository.SaveChangesCalled);
+    }
+
+    [Fact]
+    public void WebhookEnvelope_MapsKindeDocumentedUserPayloadShape()
+    {
+        const string json = """
+            {
+              "data": {
+                "user": {
+                  "email": "user@example.com",
+                  "first_name": "Test",
+                  "id": "kp_1234567890",
+                  "is_password_reset_requested": false,
+                  "is_suspended": false,
+                  "last_name": "",
+                  "organizations": [
+                    {
+                      "code": "org_1234567890",
+                      "permissions": null,
+                      "roles": null
+                    }
+                  ],
+                  "phone": null,
+                  "username": null
+                }
+              },
+              "event_id": "event_1234567890",
+              "event_timestamp": "2026-02-03T12:00:00.000Z",
+              "source": "admin",
+              "timestamp": "2026-02-03T12:00:00.000Z",
+              "type": "user.created"
+            }
+            """;
+
+        var payload = JsonSerializer.Deserialize<WebhookEnvelope>(json);
+
+        Assert.NotNull(payload);
+        Assert.Equal("user.created", payload!.Type);
+        Assert.Equal("event_1234567890", payload.EventId);
+        Assert.Equal("kp_1234567890", payload.Data?.User?.Id);
+        Assert.Equal("user@example.com", payload.Data?.User?.Email);
+        Assert.Single(payload.Data?.User?.Organizations ?? []);
     }
 
     private sealed class CapturingDeckRepository : IDeckRepository
