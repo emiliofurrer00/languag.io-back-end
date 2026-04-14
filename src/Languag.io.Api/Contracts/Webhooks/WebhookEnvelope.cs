@@ -1,31 +1,48 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Languag.io.Api.Contracts.Webhooks;
+
 public sealed class WebhookEnvelope
 {
-    [JsonPropertyName("data")]
-    public WebhookEvent Data { get; init; } = default!;
-}
-
-public sealed class WebhookEvent
-{
     [JsonPropertyName("type")]
-    public string Type { get; init; } = default!; // "user.created"
+    public string? Type { get; init; }
+
+    [JsonPropertyName("event_id")]
+    public string? EventId { get; init; }
+
+    [JsonPropertyName("event_timestamp")]
+    public DateTimeOffset? EventTimestamp { get; init; }
 
     [JsonPropertyName("timestamp")]
-    public long Timestamp { get; init; }
+    public DateTimeOffset? Timestamp { get; init; }
+
+    [JsonPropertyName("source")]
+    public string? Source { get; init; }
 
     [JsonPropertyName("data")]
-    public UserData Payload { get; init; } = default!;
+    public WebhookData? Data { get; init; }
 
-    [JsonPropertyName("event_attributes")]
-    public EventAttributes? EventAttributes { get; init; }
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }
 }
 
-public sealed class UserData
+public sealed class WebhookData
+{
+    [JsonPropertyName("user")]
+    public WebhookUser? User { get; init; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }
+}
+
+public sealed class WebhookUser
 {
     [JsonPropertyName("id")]
-    public string Id { get; init; } = default!;
+    public string? Id { get; init; }
+
+    [JsonPropertyName("email")]
+    public string? Email { get; init; }
 
     [JsonPropertyName("first_name")]
     public string? FirstName { get; init; }
@@ -33,33 +50,36 @@ public sealed class UserData
     [JsonPropertyName("last_name")]
     public string? LastName { get; init; }
 
-    [JsonPropertyName("email_addresses")]
-    public List<EmailAddress> EmailAddresses { get; init; } = new();
+    [JsonPropertyName("username")]
+    public string? Username { get; init; }
 
-    [JsonPropertyName("primary_email_address_id")]
-    public string? PrimaryEmailAddressId { get; init; }
+    [JsonPropertyName("phone")]
+    public string? Phone { get; init; }
+
+    [JsonPropertyName("is_password_reset_requested")]
+    public bool? IsPasswordResetRequested { get; init; }
+
+    [JsonPropertyName("is_suspended")]
+    public bool? IsSuspended { get; init; }
+
+    [JsonPropertyName("organizations")]
+    public List<WebhookOrganization> Organizations { get; init; } = [];
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }
 }
 
-public sealed class EmailAddress
+public sealed class WebhookOrganization
 {
-    [JsonPropertyName("id")]
-    public string Id { get; init; } = default!;
+    [JsonPropertyName("code")]
+    public string? Code { get; init; }
 
-    [JsonPropertyName("email_address")]
-    public string Email { get; init; } = default!;
-}
+    [JsonPropertyName("permissions")]
+    public JsonElement? Permissions { get; init; }
 
-public sealed class EventAttributes
-{
-    [JsonPropertyName("http_request")]
-    public HttpRequestAttributes? HttpRequest { get; init; }
-}
+    [JsonPropertyName("roles")]
+    public JsonElement? Roles { get; init; }
 
-public sealed class HttpRequestAttributes
-{
-    [JsonPropertyName("client_ip")]
-    public string? ClientIp { get; init; }
-
-    [JsonPropertyName("user_agent")]
-    public string? UserAgent { get; init; }
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? AdditionalProperties { get; init; }
 }
