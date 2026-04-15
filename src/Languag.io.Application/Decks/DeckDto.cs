@@ -8,5 +8,6 @@ public record DeckDto(
     string? Description,
     DeckVisibility Visibility,
     string? Color,
-    List<CardDto> Cards
+    List<CardDto> Cards,
+    string? OwnerName
 );

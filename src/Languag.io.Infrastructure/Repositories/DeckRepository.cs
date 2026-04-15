@@ -17,6 +17,7 @@ public class DeckRepository : IDeckRepository
     {
         return await _dbContext.Decks
             .Where(d => d.Visibility == DeckVisibility.Public)
+            .Include(d => d.User)
             .OrderByDescending(d => d.UpdatedAtUtc)
             .Select(d => new DeckDto(
                 d.Id,
@@ -28,7 +29,8 @@ public class DeckRepository : IDeckRepository
                 d.Cards
                     .OrderBy(c => c.Order)
                     .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
-                    .ToList()
+                    .ToList(),
+                d.User.Username ?? ""
             ))
             .ToListAsync(ct);
     }
@@ -37,6 +39,7 @@ public class DeckRepository : IDeckRepository
     {
         return await _dbContext.Decks
             .AsNoTracking()
+            .Include(d => d.User)
             .Where(d => d.OwnerId == ownerId || d.Visibility == DeckVisibility.Public)
             .OrderByDescending(d => d.UpdatedAtUtc)
             .Select(d => new DeckDto(
@@ -49,7 +52,9 @@ public class DeckRepository : IDeckRepository
                 d.Cards
                     .OrderBy(c => c.Order)
                     .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
-                    .ToList()
+                    .ToList(),
+                d.User.Username ?? ""
+                
             ))
             .ToListAsync(ct);
     }
@@ -76,6 +81,7 @@ public class DeckRepository : IDeckRepository
     {
         return await _dbContext.Decks
             .AsNoTracking()
+            .Include(d => d.User)
             .Where(d => d.Id == deckId)
             .Where(d => d.Visibility == DeckVisibility.Public || (ownerId.HasValue && d.OwnerId == ownerId.Value))
             .Select(d => new DeckDto(
@@ -88,7 +94,8 @@ public class DeckRepository : IDeckRepository
                 d.Cards
                     .OrderBy(c => c.Order)
                     .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
-                    .ToList()
+                    .ToList(),
+                d.User.Username ?? ""
              ))
             .FirstOrDefaultAsync();
     }
