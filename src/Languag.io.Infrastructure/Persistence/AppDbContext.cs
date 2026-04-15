@@ -50,6 +50,7 @@ public class AppDbContext : DbContext
             builder.Property(u => u.Username).HasMaxLength(50);
             builder.Property(u => u.HasBeenOnboarded).HasDefaultValue(false);
             builder.Property(u => u.DailyCardsGoal).HasDefaultValue(0);
+            builder.Property(u => u.AvatarColor).HasMaxLength(20).HasDefaultValue("teal");
             builder.Property(u => u.ProfileDescription).HasDefaultValue(string.Empty);
             builder.Property(u => u.About).HasDefaultValue(string.Empty);
             builder.Property(u => u.IsPublicProfile).HasDefaultValue(false);

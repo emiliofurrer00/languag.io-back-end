@@ -6,6 +6,7 @@ public sealed record UpdateUserProfileCommand(
     string? Name,
     bool HasBeenOnboarded,
     int DailyCardsGoal,
+    string AvatarColor,
     string ProfileDescription,
     string About,
     bool IsPublicProfile);

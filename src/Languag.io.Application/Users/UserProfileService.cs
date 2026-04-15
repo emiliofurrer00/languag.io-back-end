@@ -2,6 +2,8 @@ namespace Languag.io.Application.Users;
 
 public sealed class UserProfileService : IUserProfileService
 {
+    private static readonly HashSet<string> AllowedAvatarColors = ["yellow", "teal", "magenta", "coral", "blue"];
+
     private readonly IUserProfileRepository _userProfileRepository;
 
     public UserProfileService(IUserProfileRepository userProfileRepository)
@@ -39,6 +41,7 @@ public sealed class UserProfileService : IUserProfileService
         {
             Username = normalizedUsername,
             Name = NormalizeOptionalText(command.Name),
+            AvatarColor = NormalizeAvatarColor(command.AvatarColor),
             ProfileDescription = command.ProfileDescription.Trim(),
             About = command.About.Trim()
         };
@@ -60,5 +63,21 @@ public sealed class UserProfileService : IUserProfileService
         }
 
         return value.Trim();
+    }
+
+    private static string NormalizeAvatarColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "teal";
+        }
+
+        var normalized = value
+            .Trim()
+            .ToLowerInvariant()
+            .Replace("bg-", string.Empty)
+            .Replace("neo-", string.Empty);
+
+        return AllowedAvatarColors.Contains(normalized) ? normalized : "teal";
     }
 }

@@ -8,6 +8,7 @@ public sealed record UserProfileDto(
     string? Email,
     bool HasBeenOnboarded,
     int DailyCardsGoal,
+    string AvatarColor,
     string ProfileDescription,
     string About,
     bool IsPublicProfile);

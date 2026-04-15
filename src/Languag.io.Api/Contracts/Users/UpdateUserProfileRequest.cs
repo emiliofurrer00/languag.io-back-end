@@ -15,6 +15,8 @@ public sealed class UpdateUserProfileRequest
     [Range(0, int.MaxValue)]
     public int DailyCardsGoal { get; set; }
 
+    public string AvatarColor { get; set; } = "teal";
+
     public string ProfileDescription { get; set; } = string.Empty;
 
     public string About { get; set; } = string.Empty;

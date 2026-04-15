@@ -9,6 +9,7 @@ public class User
     public string? Username { get; set; }
     public bool HasBeenOnboarded { get; set; }
     public int DailyCardsGoal { get; set; }
+    public string AvatarColor { get; set; } = "teal";
     public string ProfileDescription { get; set; } = string.Empty;
     public string About { get; set; } = string.Empty;
     public bool IsPublicProfile { get; set; }

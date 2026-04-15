@@ -85,6 +85,7 @@ public sealed class UsersController : ControllerBase
                 request.Name,
                 request.HasBeenOnboarded,
                 request.DailyCardsGoal,
+                request.AvatarColor,
                 request.ProfileDescription,
                 request.About,
                 request.IsPublicProfile),

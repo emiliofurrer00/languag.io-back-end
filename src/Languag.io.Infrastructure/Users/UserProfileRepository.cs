@@ -27,6 +27,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
                 user.Email,
                 user.HasBeenOnboarded,
                 user.DailyCardsGoal,
+                user.AvatarColor,
                 user.ProfileDescription,
                 user.About,
                 user.IsPublicProfile))
@@ -54,6 +55,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
         user.Name = command.Name;
         user.HasBeenOnboarded = command.HasBeenOnboarded;
         user.DailyCardsGoal = command.DailyCardsGoal;
+        user.AvatarColor = command.AvatarColor;
         user.ProfileDescription = command.ProfileDescription;
         user.About = command.About;
         user.IsPublicProfile = command.IsPublicProfile;
@@ -91,6 +93,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
             user.Email,
             user.HasBeenOnboarded,
             user.DailyCardsGoal,
+            user.AvatarColor,
             user.ProfileDescription,
             user.About,
             user.IsPublicProfile);
