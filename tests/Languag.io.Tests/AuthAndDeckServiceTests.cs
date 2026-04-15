@@ -113,8 +113,11 @@ public class AuthAndDeckServiceTests
         var expected = new UserProfileDto(
             Guid.NewGuid(),
             "kp_123",
+            "ada",
             "Ada Lovelace",
             "ada@example.com",
+            true,
+            25,
             "Linguist and builder",
             "I like language learning products.",
             true);
