@@ -47,10 +47,16 @@ public class AppDbContext : DbContext
             builder.Property(u => u.ExternalId).IsRequired().HasMaxLength(255);
             builder.Property(u => u.Name).HasMaxLength(100);
             builder.Property(u => u.Email).HasMaxLength(255);
+            builder.Property(u => u.Username).HasMaxLength(50);
+            builder.Property(u => u.HasBeenOnboarded).HasDefaultValue(false);
+            builder.Property(u => u.DailyCardsGoal).HasDefaultValue(0);
             builder.Property(u => u.ProfileDescription).HasDefaultValue(string.Empty);
             builder.Property(u => u.About).HasDefaultValue(string.Empty);
             builder.Property(u => u.IsPublicProfile).HasDefaultValue(false);
             builder.HasIndex(u => u.ExternalId).IsUnique();
+            builder.HasIndex(u => u.Username)
+                .IsUnique()
+                .HasFilter("\"Username\" IS NOT NULL AND \"Username\" <> ''");
         });
     }
 }
