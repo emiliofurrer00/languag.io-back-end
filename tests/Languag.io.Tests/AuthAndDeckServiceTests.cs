@@ -129,6 +129,58 @@ public class AuthAndDeckServiceTests
         Assert.Equal(expected, profile);
     }
 
+    [Fact]
+    public async Task UserProfileService_RejectsCompletedOnboardingWithoutUsername()
+    {
+        var service = new UserProfileService(new StubUserProfileRepository(new UserProfileDto(
+            Guid.NewGuid(),
+            "kp_123",
+            null,
+            "Ada Lovelace",
+            "ada@example.com",
+            false,
+            0,
+            "",
+            "",
+            false)));
+
+        var result = await service.UpdateAsync(new UpdateUserProfileCommand(
+            Guid.NewGuid(),
+            "   ",
+            "Ada",
+            true,
+            25,
+            "Bio",
+            "About",
+            false));
+
+        Assert.Equal(UpdateUserProfileStatus.Invalid, result.Status);
+        Assert.Null(result.Profile);
+    }
+
+    [Fact]
+    public async Task UserProfileService_NormalizesUsernameBeforeCheckingAvailability()
+    {
+        var repository = new StubUserProfileRepository(new UserProfileDto(
+            Guid.NewGuid(),
+            "kp_123",
+            "ada",
+            "Ada Lovelace",
+            "ada@example.com",
+            true,
+            25,
+            "Bio",
+            "About",
+            false));
+
+        var service = new UserProfileService(repository);
+
+        var isAvailable = await service.IsUsernameAvailableAsync("  ada  ", Guid.NewGuid());
+
+        Assert.True(isAvailable);
+        Assert.Equal("ada", repository.LastAvailabilityUsername);
+    }
+
     private sealed class CapturingDeckRepository : IDeckRepository
     {
         public Deck? AddedDeck { get; private set; }
@@ -190,6 +242,8 @@ public class AuthAndDeckServiceTests
     private sealed class StubUserProfileRepository : IUserProfileRepository
     {
         private readonly UserProfileDto _profile;
+        public string? LastAvailabilityUsername { get; private set; }
+        public UpdateUserProfileCommand? LastUpdateCommand { get; private set; }
 
         public StubUserProfileRepository(UserProfileDto profile)
         {
@@ -199,6 +253,30 @@ public class AuthAndDeckServiceTests
         public Task<UserProfileDto?> GetByIdAsync(Guid userId, CancellationToken ct = default)
         {
             return Task.FromResult<UserProfileDto?>(_profile with { Id = userId });
+        }
+
+        public Task<bool> IsUsernameAvailableAsync(string username, Guid excludingUserId, CancellationToken ct = default)
+        {
+            LastAvailabilityUsername = username;
+            return Task.FromResult(true);
+        }
+
+        public Task<UpdateUserProfileResult> UpdateAsync(UpdateUserProfileCommand command, CancellationToken ct = default)
+        {
+            LastUpdateCommand = command;
+            return Task.FromResult(new UpdateUserProfileResult(
+                UpdateUserProfileStatus.Updated,
+                _profile with
+                {
+                    Id = command.UserId,
+                    Username = command.Username,
+                    Name = command.Name,
+                    HasBeenOnboarded = command.HasBeenOnboarded,
+                    DailyCardsGoal = command.DailyCardsGoal,
+                    ProfileDescription = command.ProfileDescription,
+                    About = command.About,
+                    IsPublicProfile = command.IsPublicProfile
+                }));
         }
     }
 }
