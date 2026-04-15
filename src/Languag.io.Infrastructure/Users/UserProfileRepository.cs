@@ -21,8 +21,11 @@ public sealed class UserProfileRepository : IUserProfileRepository
             .Select(user => new UserProfileDto(
                 user.Id,
                 user.ExternalId,
+                user.Username,
                 user.Name,
                 user.Email,
+                user.HasBeenOnboarded,
+                user.DailyCardsGoal,
                 user.ProfileDescription,
                 user.About,
                 user.IsPublicProfile))
