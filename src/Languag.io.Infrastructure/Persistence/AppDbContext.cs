@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -59,6 +60,28 @@ public class AppDbContext : DbContext
                 .IsUnique()
                 .HasFilter("\"Username\" IS NOT NULL AND \"Username\" <> ''");
         });
+
+        modelBuilder.Entity<ActivityLog>(builder =>
+        {
+            builder.HasKey(a => a.Id);
+            builder.Property(a => a.Type).IsRequired();
+            builder.Property(a => a.OccurredAtUtc).IsRequired();
+            builder.Property(a => a.CreatedAtUtc).IsRequired();
+            builder.Property(a => a.Metadata).HasMaxLength(2000);
+
+            builder.HasOne(a => a.User)
+                   .WithMany(u => u.ActivityLogs)
+                   .HasForeignKey(a => a.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(a => a.Deck)
+                   .WithMany(d => d.ActivityLogs)
+                   .HasForeignKey(a => a.DeckId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasIndex(a => new { a.UserId, a.OccurredAtUtc });
+            builder.HasIndex(a => new { a.UserId, a.Type, a.OccurredAtUtc });
+        });
     }
 }
-
