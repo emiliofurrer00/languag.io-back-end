@@ -14,5 +14,6 @@ public class User
     public string About { get; set; } = string.Empty;
     public bool IsPublicProfile { get; set; }
     public List<Deck> Decks { get; set; } = new List<Deck>();
+    public List<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
 
 }

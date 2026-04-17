@@ -18,6 +18,7 @@ namespace Languag.io.Domain.Entities
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public List<Card> Cards { get; set; } = new List<Card>();
+        public List<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
     }
 
     public enum DeckVisibility
