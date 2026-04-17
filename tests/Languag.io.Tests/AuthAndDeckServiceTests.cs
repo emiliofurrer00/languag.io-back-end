@@ -3,6 +3,7 @@ using System.Text.Json;
 using Languag.io.Api.Auth;
 using Languag.io.Api.Contracts.Decks;
 using Languag.io.Api.Contracts.Webhooks;
+using Languag.io.Application.ActivityLogs;
 using Languag.io.Application.Decks;
 using Languag.io.Application.Users;
 using Languag.io.Domain.Entities;
@@ -35,7 +36,8 @@ public class AuthAndDeckServiceTests
     public async Task CreateDeckAsync_AssignsOwnerAndPreservesCardFields()
     {
         var repository = new CapturingDeckRepository();
-        var service = new DeckService(repository);
+        var activityLogRepository = new CapturingActivityLogRepository();
+        var service = new DeckService(repository, activityLogRepository);
         var ownerId = Guid.NewGuid();
 
         var deckId = await service.CreateDeckAsync(
@@ -62,7 +64,48 @@ public class AuthAndDeckServiceTests
         Assert.Equal("Hola, que tal?", repository.AddedDeck.Cards[0].ExampleSentence);
         Assert.Equal(3, repository.AddedDeck.Cards[0].Order);
         Assert.Equal(repository.AddedDeck.Id, repository.AddedDeck.Cards[0].DeckId);
+        Assert.Collection(
+            activityLogRepository.AddedLogs,
+            activity =>
+            {
+                Assert.Equal(ownerId, activity.UserId);
+                Assert.Equal(deckId, activity.DeckId);
+                Assert.Equal(ActivityType.DeckCreated, activity.Type);
+            },
+            activity =>
+            {
+                Assert.Equal(ownerId, activity.UserId);
+                Assert.Equal(deckId, activity.DeckId);
+                Assert.Equal(ActivityType.FirstDeckCreated, activity.Type);
+            });
         Assert.True(repository.SaveChangesCalled);
+    }
+
+    [Fact]
+    public async Task CreateDeckAsync_SkipsFirstDeckActivityWhenUserAlreadyHasDecks()
+    {
+        var repository = new CapturingDeckRepository
+        {
+            UserHasDecksResult = true
+        };
+        var activityLogRepository = new CapturingActivityLogRepository();
+        var service = new DeckService(repository, activityLogRepository);
+        var ownerId = Guid.NewGuid();
+
+        var deckId = await service.CreateDeckAsync(
+            new CreateDeckCommand(
+                "Spanish Basics",
+                "Common starter words",
+                "Spanish",
+                "teal",
+                DeckVisibility.Private,
+                []),
+            ownerId);
+
+        var activity = Assert.Single(activityLogRepository.AddedLogs);
+        Assert.Equal(ownerId, activity.UserId);
+        Assert.Equal(deckId, activity.DeckId);
+        Assert.Equal(ActivityType.DeckCreated, activity.Type);
     }
 
     [Fact]
@@ -118,6 +161,7 @@ public class AuthAndDeckServiceTests
             "ada@example.com",
             true,
             25,
+            "teal",
             "Linguist and builder",
             "I like language learning products.",
             true);
@@ -140,6 +184,7 @@ public class AuthAndDeckServiceTests
             "ada@example.com",
             false,
             0,
+            "teal",
             "",
             "",
             false)));
@@ -150,6 +195,7 @@ public class AuthAndDeckServiceTests
             "Ada",
             true,
             25,
+            "teal",
             "Bio",
             "About",
             false));
@@ -169,6 +215,7 @@ public class AuthAndDeckServiceTests
             "ada@example.com",
             true,
             25,
+            "teal",
             "Bio",
             "About",
             false));
@@ -185,6 +232,7 @@ public class AuthAndDeckServiceTests
     {
         public Deck? AddedDeck { get; private set; }
         public bool SaveChangesCalled { get; private set; }
+        public bool UserHasDecksResult { get; init; }
 
         public Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default)
         {
@@ -194,6 +242,11 @@ public class AuthAndDeckServiceTests
         public Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, CancellationToken ct = default)
         {
             throw new NotImplementedException();
+        }
+
+        public Task<bool> UserHasDecksAsync(Guid ownerId, CancellationToken ct = default)
+        {
+            return Task.FromResult(UserHasDecksResult);
         }
 
         public Task AddAsync(Deck deck, CancellationToken ct = default)
@@ -236,6 +289,17 @@ public class AuthAndDeckServiceTests
         public Task<bool> DeckExistsAsync(Guid deckId, CancellationToken ct = default)
         {
             throw new NotImplementedException();
+        }
+    }
+
+    private sealed class CapturingActivityLogRepository : IActivityLogRepository
+    {
+        public List<ActivityLog> AddedLogs { get; } = [];
+
+        public Task AddAsync(ActivityLog activityLog, CancellationToken ct = default)
+        {
+            AddedLogs.Add(activityLog);
+            return Task.CompletedTask;
         }
     }
 
