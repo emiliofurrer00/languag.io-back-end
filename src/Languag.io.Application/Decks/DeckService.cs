@@ -1,5 +1,5 @@
 ﻿using Languag.io.Domain.Entities;
-using Languag.io.Application.Decks;
+using Languag.io.Application.ActivityLogs;
 using Languag.io.Api.Contracts.Decks;
 
 namespace Languag.io.Application.Decks;
@@ -7,10 +7,14 @@ namespace Languag.io.Application.Decks;
 public class DeckService : IDeckService 
 {
     private readonly IDeckRepository _deckRepository;
+    private readonly IActivityLogRepository _activityLogRepository;
     
-    public DeckService(IDeckRepository deckRepository)
+    public DeckService(
+        IDeckRepository deckRepository,
+        IActivityLogRepository activityLogRepository)
     {
         _deckRepository = deckRepository;
+        _activityLogRepository = activityLogRepository;
     }
 
     public async Task<IEnumerable<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default)
@@ -26,6 +30,7 @@ public class DeckService : IDeckService
     public async Task<Guid> CreateDeckAsync(CreateDeckCommand command, Guid ownerId, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
+        var isFirstDeck = !await _deckRepository.UserHasDecksAsync(ownerId, ct);
 
         Deck newDeck = new Deck
         {
@@ -56,6 +61,16 @@ public class DeckService : IDeckService
 
 
         await _deckRepository.AddAsync(newDeck, ct);
+        ActivityLog deckCreatedLog = CreateActivityLog(ownerId, newDeck, ActivityType.DeckCreated, now);
+        await _activityLogRepository.AddAsync(deckCreatedLog, ct);
+
+        if (isFirstDeck)
+        {
+            await _activityLogRepository.AddAsync(
+                CreateActivityLog(ownerId, newDeck, ActivityType.FirstDeckCreated, now),
+                ct);
+        }
+
         await _deckRepository.SaveChangesAsync(ct);
 
         return newDeck.Id;
@@ -101,6 +116,24 @@ public class DeckService : IDeckService
 
         await _deckRepository.SaveChangesAsync(ct);
         return true;
+    }
+
+    private static ActivityLog CreateActivityLog(
+        Guid userId,
+        Deck deck,
+        ActivityType activityType,
+        DateTime occurredAtUtc)
+    {
+        return new ActivityLog
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            DeckId = deck.Id,
+            Deck = deck,
+            Type = activityType,
+            OccurredAtUtc = occurredAtUtc,
+            CreatedAtUtc = occurredAtUtc
+        };
     }
 
 }

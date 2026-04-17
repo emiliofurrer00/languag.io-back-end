@@ -7,6 +7,7 @@ public interface IDeckRepository
 {
     Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default);
     Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, CancellationToken ct = default);
+    Task<bool> UserHasDecksAsync(Guid ownerId, CancellationToken ct = default);
 
     Task AddAsync(Deck deck, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);

@@ -59,6 +59,13 @@ public class DeckRepository : IDeckRepository
             .ToListAsync(ct);
     }
 
+    public Task<bool> UserHasDecksAsync(Guid ownerId, CancellationToken ct = default)
+    {
+        return _dbContext.Decks
+            .AsNoTracking()
+            .AnyAsync(deck => deck.OwnerId == ownerId, ct);
+    }
+
     public async Task AddAsync(Deck deck, CancellationToken ct = default)
     {
         await _dbContext.Decks.AddAsync(deck, ct);
