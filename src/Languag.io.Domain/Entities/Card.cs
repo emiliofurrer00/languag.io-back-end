@@ -13,6 +13,7 @@ namespace Languag.io.Domain.Entities
         public string? ExampleSentence { get; set; }
         public int Order { get; set; }
         public Deck? Deck { get; set; }
+        public List<StudySessionResponse> StudySessionResponses { get; set; } = new List<StudySessionResponse>();
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
     }

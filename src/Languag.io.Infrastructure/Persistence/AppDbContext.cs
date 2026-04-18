@@ -14,6 +14,8 @@ public class AppDbContext : DbContext
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<StudySession> StudySessions => Set<StudySession>();
+    public DbSet<StudySessionResponse> StudySessionResponses => Set<StudySessionResponse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +86,60 @@ public class AppDbContext : DbContext
 
             builder.HasIndex(a => new { a.UserId, a.OccurredAtUtc });
             builder.HasIndex(a => new { a.UserId, a.Type, a.OccurredAtUtc });
+        });
+
+        modelBuilder.Entity<StudySession>(builder =>
+        {
+            builder.HasKey(s => s.Id);
+            builder.Property(s => s.CreatedAtUtc).IsRequired();
+            builder.Property(s => s.PercentageCorrect).HasPrecision(5, 2);
+
+            builder.HasOne(s => s.Deck)
+                   .WithMany(d => d.StudySessions)
+                   .HasForeignKey(s => s.DeckId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(s => s.User)
+                   .WithMany(u => u.StudySessions)
+                   .HasForeignKey(s => s.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(s => s.Responses)
+                   .WithOne(r => r.StudySession)
+                   .HasForeignKey(r => r.StudySessionId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(s => new { s.UserId, s.CreatedAtUtc });
+            builder.HasIndex(s => new { s.DeckId, s.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<StudySessionResponse>(builder =>
+        {
+            builder.HasKey(r => r.Id);
+            builder.Property(r => r.WasCorrect).IsRequired();
+
+            builder.HasOne(r => r.StudySession)
+                   .WithMany(s => s.Responses)
+                   .HasForeignKey(r => r.StudySessionId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(r => r.Deck)
+                   .WithMany(d => d.StudySessionResponses)
+                   .HasForeignKey(r => r.DeckId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(r => r.Card)
+                   .WithMany(c => c.StudySessionResponses)
+                   .HasForeignKey(r => r.CardId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(r => r.User)
+                   .WithMany(u => u.StudySessionResponses)
+                   .HasForeignKey(r => r.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(r => new { r.StudySessionId, r.CardId });
+            builder.HasIndex(r => new { r.UserId, r.DeckId });
         });
     }
 }
