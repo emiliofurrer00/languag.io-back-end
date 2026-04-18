@@ -12,5 +12,5 @@ public sealed record UserProfileDto(
     string ProfileDescription,
     string About,
     bool IsPublicProfile,
-    DateTime CreatedAt,
+    DateTime CreatedAtUtc,
     IReadOnlyList<UserProfileActivityDto>? RecentActivity = null);
