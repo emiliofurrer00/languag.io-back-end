@@ -59,6 +59,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
         user.ProfileDescription = command.ProfileDescription;
         user.About = command.About;
         user.IsPublicProfile = command.IsPublicProfile;
+        user.UpdatedAtUtc = DateTime.UtcNow;
 
         try
         {

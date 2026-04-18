@@ -49,6 +49,8 @@ public class AppDbContext : DbContext
             builder.Property(u => u.Name).HasMaxLength(100);
             builder.Property(u => u.Email).HasMaxLength(255);
             builder.Property(u => u.Username).HasMaxLength(50);
+            builder.Property(u => u.CreatedAtUtc).IsRequired().HasDefaultValueSql("NOW()");
+            builder.Property(u => u.UpdatedAtUtc).IsRequired().HasDefaultValueSql("NOW()");
             builder.Property(u => u.HasBeenOnboarded).HasDefaultValue(false);
             builder.Property(u => u.DailyCardsGoal).HasDefaultValue(0);
             builder.Property(u => u.AvatarColor).HasMaxLength(20).HasDefaultValue("teal");

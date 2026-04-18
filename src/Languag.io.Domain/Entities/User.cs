@@ -7,6 +7,8 @@ public class User
     public string? Name { get; set; } = "";
     public string? Email { get; set; } = "";
     public string? Username { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime UpdatedAtUtc { get; set; }
     public bool HasBeenOnboarded { get; set; }
     public int DailyCardsGoal { get; set; }
     public string AvatarColor { get; set; } = "teal";

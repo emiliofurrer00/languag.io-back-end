@@ -37,18 +37,22 @@ public class UserIdentityService : IUserIdentityService
 
             if (isUpdated)
             {
+                existingUser.UpdatedAtUtc = DateTime.UtcNow;
                 await _dbContext.SaveChangesAsync(ct);
             }
 
             return existingUser.Id;
         }
 
+        var now = DateTime.UtcNow;
         var newUser = new User
         {
             Id = Guid.NewGuid(),
             ExternalId = user.ExternalId,
             Email = user.Email,
-            Name = user.Name
+            Name = user.Name,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
         };
 
         _dbContext.Users.Add(newUser);
