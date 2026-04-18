@@ -1,0 +1,171 @@
+using Languag.io.Application.ActivityLogs;
+using Languag.io.Application.StudySessions;
+using Languag.io.Domain.Entities;
+
+namespace Languag.io.Tests;
+
+public sealed class StudySessionServiceTests
+{
+    [Fact]
+    public async Task SubmitAsync_CreatesStudySessionAndAllExpectedActivityLogs()
+    {
+        var repository = new CapturingStudySessionRepository();
+        var activityLogRepository = new CapturingActivityLogRepository();
+        var service = new StudySessionService(repository, activityLogRepository);
+        var userId = Guid.NewGuid();
+        var deckId = Guid.NewGuid();
+        var cardId = Guid.NewGuid();
+
+        var result = await service.SubmitAsync(
+            new SubmitStudySessionCommand(
+                deckId,
+                100m,
+                [
+                    new SubmitStudySessionResponseCommand(cardId, true)
+                ]),
+            userId);
+
+        Assert.Equal(SubmitStudySessionStatus.Created, result.Status);
+        Assert.NotNull(result.StudySessionId);
+        Assert.True(repository.SaveChangesCalled);
+        Assert.NotNull(repository.AddedStudySession);
+        Assert.Equal(deckId, repository.AddedStudySession!.DeckId);
+        Assert.Equal(userId, repository.AddedStudySession.UserId);
+        Assert.Equal(100m, repository.AddedStudySession.PercentageCorrect);
+
+        var response = Assert.Single(repository.AddedStudySession.Responses);
+        Assert.Equal(result.StudySessionId, response.StudySessionId);
+        Assert.Equal(deckId, response.DeckId);
+        Assert.Equal(cardId, response.CardId);
+        Assert.Equal(userId, response.UserId);
+        Assert.True(response.WasCorrect);
+
+        Assert.Collection(
+            activityLogRepository.AddedLogs,
+            activity => Assert.Equal(ActivityType.DeckStudySessionCompleted, activity.Type),
+            activity => Assert.Equal(ActivityType.DeckMastered, activity.Type),
+            activity => Assert.Equal(ActivityType.FirstStudySessionCompleted, activity.Type));
+    }
+
+    [Fact]
+    public async Task SubmitAsync_SkipsConditionalActivityLogsWhenNotApplicable()
+    {
+        var repository = new CapturingStudySessionRepository
+        {
+            UserHasStudySessionsResult = true
+        };
+        var activityLogRepository = new CapturingActivityLogRepository();
+        var service = new StudySessionService(repository, activityLogRepository);
+
+        var result = await service.SubmitAsync(
+            new SubmitStudySessionCommand(
+                Guid.NewGuid(),
+                80m,
+                [
+                    new SubmitStudySessionResponseCommand(Guid.NewGuid(), true)
+                ]),
+            Guid.NewGuid());
+
+        Assert.Equal(SubmitStudySessionStatus.Created, result.Status);
+        var activity = Assert.Single(activityLogRepository.AddedLogs);
+        Assert.Equal(ActivityType.DeckStudySessionCompleted, activity.Type);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ReturnsInvalidWhenResponseCardsDoNotBelongToDeck()
+    {
+        var repository = new CapturingStudySessionRepository
+        {
+            DeckContainsCardsResult = false
+        };
+        var activityLogRepository = new CapturingActivityLogRepository();
+        var service = new StudySessionService(repository, activityLogRepository);
+
+        var result = await service.SubmitAsync(
+            new SubmitStudySessionCommand(
+                Guid.NewGuid(),
+                50m,
+                [
+                    new SubmitStudySessionResponseCommand(Guid.NewGuid(), false)
+                ]),
+            Guid.NewGuid());
+
+        Assert.Equal(SubmitStudySessionStatus.Invalid, result.Status);
+        Assert.Null(repository.AddedStudySession);
+        Assert.Empty(activityLogRepository.AddedLogs);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ReturnsDeckNotFoundWhenDeckIsNotAccessible()
+    {
+        var repository = new CapturingStudySessionRepository
+        {
+            CanAccessDeckResult = false
+        };
+        var activityLogRepository = new CapturingActivityLogRepository();
+        var service = new StudySessionService(repository, activityLogRepository);
+
+        var result = await service.SubmitAsync(
+            new SubmitStudySessionCommand(
+                Guid.NewGuid(),
+                50m,
+                [
+                    new SubmitStudySessionResponseCommand(Guid.NewGuid(), false)
+                ]),
+            Guid.NewGuid());
+
+        Assert.Equal(SubmitStudySessionStatus.DeckNotFound, result.Status);
+        Assert.Null(repository.AddedStudySession);
+        Assert.Empty(activityLogRepository.AddedLogs);
+    }
+
+    private sealed class CapturingStudySessionRepository : IStudySessionRepository
+    {
+        public bool CanAccessDeckResult { get; init; } = true;
+        public bool DeckContainsCardsResult { get; init; } = true;
+        public bool UserHasStudySessionsResult { get; init; }
+        public bool SaveChangesCalled { get; private set; }
+        public StudySession? AddedStudySession { get; private set; }
+
+        public Task<bool> CanAccessDeckAsync(Guid deckId, Guid userId, CancellationToken ct = default)
+        {
+            return Task.FromResult(CanAccessDeckResult);
+        }
+
+        public Task<bool> DeckContainsCardsAsync(
+            Guid deckId,
+            IReadOnlyCollection<Guid> cardIds,
+            CancellationToken ct = default)
+        {
+            return Task.FromResult(DeckContainsCardsResult);
+        }
+
+        public Task<bool> UserHasStudySessionsAsync(Guid userId, CancellationToken ct = default)
+        {
+            return Task.FromResult(UserHasStudySessionsResult);
+        }
+
+        public Task AddAsync(StudySession studySession, CancellationToken ct = default)
+        {
+            AddedStudySession = studySession;
+            return Task.CompletedTask;
+        }
+
+        public Task SaveChangesAsync(CancellationToken ct = default)
+        {
+            SaveChangesCalled = true;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CapturingActivityLogRepository : IActivityLogRepository
+    {
+        public List<ActivityLog> AddedLogs { get; } = [];
+
+        public Task AddAsync(ActivityLog activityLog, CancellationToken ct = default)
+        {
+            AddedLogs.Add(activityLog);
+            return Task.CompletedTask;
+        }
+    }
+}

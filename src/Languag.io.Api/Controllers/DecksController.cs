@@ -1,6 +1,8 @@
 using Languag.io.Api.Auth;
 using Languag.io.Api.Contracts.Decks;
+using Languag.io.Api.Contracts.StudySessions;
 using Languag.io.Application.Decks;
+using Languag.io.Application.StudySessions;
 using Languag.io.Application.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,11 +14,16 @@ namespace Languag.io.Api.Controllers;
 public class DecksController : ControllerBase
 {
     private readonly IDeckService _deckService;
+    private readonly IStudySessionService _studySessionService;
     private readonly IUserIdentityService _userIdentityService;
 
-    public DecksController(IDeckService deckService, IUserIdentityService userIdentityService)
+    public DecksController(
+        IDeckService deckService,
+        IStudySessionService studySessionService,
+        IUserIdentityService userIdentityService)
     {
         _deckService = deckService;
+        _studySessionService = studySessionService;
         _userIdentityService = userIdentityService;
     }
 
@@ -97,6 +104,40 @@ public class DecksController : ControllerBase
         }
 
         return NoContent();
+    }
+
+    // POST: api/decks/{id}/study-sessions
+    [Authorize]
+    [HttpPost("{id:guid}/study-sessions")]
+    public async Task<IActionResult> SubmitStudySession(
+        [FromRoute] Guid id,
+        [FromBody] SubmitStudySessionRequest request,
+        CancellationToken ct)
+    {
+        var userId = await GetCurrentUserIdAsync(ct);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var command = new SubmitStudySessionCommand(
+            id,
+            request.PercentageCorrect,
+            request.Responses
+                .Select(response => new SubmitStudySessionResponseCommand(
+                    response.CardId,
+                    response.WasCorrect))
+                .ToArray());
+
+        var result = await _studySessionService.SubmitAsync(command, userId.Value, ct);
+
+        return result.Status switch
+        {
+            SubmitStudySessionStatus.Created => Ok(new { studySessionId = result.StudySessionId }),
+            SubmitStudySessionStatus.DeckNotFound => NotFound(),
+            SubmitStudySessionStatus.Invalid => BadRequest(new { message = result.Error }),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
     }
 
     // GET: api/decks/{id}

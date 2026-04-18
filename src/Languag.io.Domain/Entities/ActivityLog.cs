@@ -20,5 +20,6 @@ public enum ActivityType
     DeckStudySessionCompleted = 2,
     DeckMastered = 3,
     DayStreakReached = 4,
-    FirstDeckCreated = 5
+    FirstDeckCreated = 5,
+    FirstStudySessionCompleted = 6
 }
