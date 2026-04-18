@@ -164,7 +164,8 @@ public class AuthAndDeckServiceTests
             "teal",
             "Linguist and builder",
             "I like language learning products.",
-            true);
+            true,
+            DateTime.UtcNow);
 
         var service = new UserProfileService(new StubUserProfileRepository(expected));
 
@@ -187,7 +188,8 @@ public class AuthAndDeckServiceTests
             "teal",
             "",
             "",
-            false)));
+            false,
+            DateTime.UtcNow)));
 
         var result = await service.UpdateAsync(new UpdateUserProfileCommand(
             Guid.NewGuid(),
@@ -218,7 +220,8 @@ public class AuthAndDeckServiceTests
             "teal",
             "Bio",
             "About",
-            false));
+            false,
+            DateTime.UtcNow));
 
         var service = new UserProfileService(repository);
 

@@ -31,7 +31,8 @@ public sealed class UserProfileRepository : IUserProfileRepository
                 user.AvatarColor,
                 user.ProfileDescription,
                 user.About,
-                user.IsPublicProfile))
+                user.IsPublicProfile,
+                user.CreatedAtUtc))
             .SingleOrDefaultAsync(ct);
 
         if (profile is null)
@@ -109,6 +110,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
             user.ProfileDescription,
             user.About,
             user.IsPublicProfile,
+            user.CreatedAtUtc,
             await ReadRecentActivityAsync(user.Id, ct));
     }
 
