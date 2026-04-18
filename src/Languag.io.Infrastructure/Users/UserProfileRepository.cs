@@ -42,7 +42,8 @@ public sealed class UserProfileRepository : IUserProfileRepository
 
         return profile with
         {
-            RecentActivity = await ReadRecentActivityAsync(userId, ct)
+            RecentActivity = await ReadRecentActivityAsync(userId, ct),
+            Stats = await ReadStatsAsync(userId, ct)
         };
     }
 
@@ -111,7 +112,29 @@ public sealed class UserProfileRepository : IUserProfileRepository
             user.About,
             user.IsPublicProfile,
             user.CreatedAtUtc,
-            await ReadRecentActivityAsync(user.Id, ct));
+            await ReadRecentActivityAsync(user.Id, ct),
+            await ReadStatsAsync(user.Id, ct));
+    }
+
+    private async Task<UserProfileStatsDto> ReadStatsAsync(Guid userId, CancellationToken ct)
+    {
+        var decksCreated = await _dbContext.Decks
+            .AsNoTracking()
+            .CountAsync(deck => deck.OwnerId == userId, ct);
+
+        var cardsStudied = await _dbContext.StudySessionResponses
+            .AsNoTracking()
+            .CountAsync(response => response.UserId == userId, ct);
+
+        var masteredDecks = await _dbContext.StudySessions
+            .AsNoTracking()
+            .CountAsync(studySession => studySession.UserId == userId && studySession.PercentageCorrect == 100m, ct);
+
+        return new UserProfileStatsDto(
+            DecksCreated: decksCreated,
+            CardsStudied: cardsStudied,
+            MasteredDecks: masteredDecks,
+            StudyStreakDays: 0);
     }
 
     private async Task<IReadOnlyList<UserProfileActivityDto>> ReadRecentActivityAsync(Guid userId, CancellationToken ct)
