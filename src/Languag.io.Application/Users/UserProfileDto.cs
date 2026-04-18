@@ -11,4 +11,5 @@ public sealed record UserProfileDto(
     string AvatarColor,
     string ProfileDescription,
     string About,
-    bool IsPublicProfile);
+    bool IsPublicProfile,
+    IReadOnlyList<UserProfileActivityDto>? RecentActivity = null);
