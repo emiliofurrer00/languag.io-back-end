@@ -29,8 +29,8 @@ public sealed class StudySessionRepository : IStudySessionRepository
         IReadOnlyCollection<Guid> cardIds,
         CancellationToken ct = default)
     {
-        var distinctCardIds = cardIds.Distinct().ToArray();
-        if (distinctCardIds.Length == 0)
+        var distinctCardIds = cardIds.Distinct().ToList();
+        if (distinctCardIds.Count == 0)
         {
             return false;
         }
@@ -42,7 +42,7 @@ public sealed class StudySessionRepository : IStudySessionRepository
             .Distinct()
             .CountAsync(ct);
 
-        return matchingCardCount == distinctCardIds.Length;
+        return matchingCardCount == distinctCardIds.Count;
     }
 
     public Task<bool> UserHasStudySessionsAsync(Guid userId, CancellationToken ct = default)
