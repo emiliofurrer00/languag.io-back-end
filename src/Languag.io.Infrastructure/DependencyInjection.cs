@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Languag.io.Application.ActivityLogs;
 using Languag.io.Application.Decks;
+using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
 using Languag.io.Application.Notifications;
 using Languag.io.Application.StudySessions;
@@ -26,6 +27,7 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString));
 
         services.AddScoped<IDeckRepository, DeckRepository>();
+        services.AddScoped<IFeedRepository, FeedRepository>();
         services.AddScoped<IStudySessionRepository, StudySessionRepository>();
         services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
         services.AddScoped<IFriendRequestRepository, FriendRequestRepository>();
