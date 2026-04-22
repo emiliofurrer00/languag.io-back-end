@@ -47,6 +47,34 @@ public sealed class UserProfileRepository : IUserProfileRepository
         };
     }
 
+    public async Task<PublicUserProfileDto?> GetPublicByUsernameAsync(string username, CancellationToken ct = default)
+    {
+        var profile = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Username == username && user.IsPublicProfile)
+            .Select(user => new PublicUserProfileDto(
+                user.Id,
+                user.Username!,
+                user.Name,
+                user.AvatarColor,
+                user.ProfileDescription,
+                user.About,
+                user.IsPublicProfile,
+                user.CreatedAtUtc))
+            .SingleOrDefaultAsync(ct);
+
+        if (profile is null)
+        {
+            return null;
+        }
+
+        return profile with
+        {
+            RecentActivity = await ReadRecentActivityAsync(profile.Id, ct),
+            Stats = await ReadStatsAsync(profile.Id, ct)
+        };
+    }
+
     public async Task<bool> IsUsernameAvailableAsync(string username, Guid excludingUserId, CancellationToken ct = default)
     {
         return !await _dbContext.Users

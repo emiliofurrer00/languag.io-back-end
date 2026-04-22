@@ -78,6 +78,7 @@ public sealed class NotificationRepository : INotificationRepository
                 notification.Id,
                 notification.Type,
                 notification.ActorUserId,
+                notification.ActorUsername,
                 BuildDisplayName(notification.ActorUsername, notification.ActorName, notification.ActorEmail, notification.ActorExternalId),
                 null,
                 notification.EntityType,

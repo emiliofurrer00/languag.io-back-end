@@ -146,9 +146,11 @@ public sealed class FriendRequestRepository : IFriendRequestRepository
             .Select(friendRequest => new FriendRequestDto(
                 friendRequest.Id,
                 friendRequest.SenderId,
+                friendRequest.SenderUsername,
                 BuildDisplayName(friendRequest.SenderUsername, friendRequest.SenderName, friendRequest.SenderEmail, friendRequest.SenderExternalId),
                 null,
                 friendRequest.ReceiverId,
+                friendRequest.ReceiverUsername,
                 BuildDisplayName(friendRequest.ReceiverUsername, friendRequest.ReceiverName, friendRequest.ReceiverEmail, friendRequest.ReceiverExternalId),
                 null,
                 friendRequest.Status,

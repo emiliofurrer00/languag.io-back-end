@@ -5,9 +5,11 @@ namespace Languag.io.Application.Friends;
 public sealed record FriendRequestDto(
     Guid Id,
     Guid SenderId,
+    string? SenderUsername,
     string SenderDisplayName,
     string? SenderAvatarUrl,
     Guid ReceiverId,
+    string? ReceiverUsername,
     string ReceiverDisplayName,
     string? ReceiverAvatarUrl,
     FriendRequestStatus Status,

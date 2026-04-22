@@ -16,6 +16,17 @@ public sealed class UserProfileService : IUserProfileService
         return _userProfileRepository.GetByIdAsync(userId, ct);
     }
 
+    public Task<PublicUserProfileDto?> GetPublicByUsernameAsync(string username, CancellationToken ct = default)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+        if (normalizedUsername is null)
+        {
+            return Task.FromResult<PublicUserProfileDto?>(null);
+        }
+
+        return _userProfileRepository.GetPublicByUsernameAsync(normalizedUsername, ct);
+    }
+
     public Task<bool> IsUsernameAvailableAsync(string username, Guid excludingUserId, CancellationToken ct = default)
     {
         var normalizedUsername = NormalizeUsername(username);

@@ -175,6 +175,42 @@ public class AuthAndDeckServiceTests
     }
 
     [Fact]
+    public async Task UserProfileService_ReturnsPublicProfileFromRepositoryByUsername()
+    {
+        var expected = new PublicUserProfileDto(
+            Guid.NewGuid(),
+            "ada",
+            "Ada Lovelace",
+            "teal",
+            "Linguist and builder",
+            "I like language learning products.",
+            true,
+            DateTime.UtcNow);
+
+        var repository = new StubUserProfileRepository(
+            new UserProfileDto(
+                expected.Id,
+                "kp_123",
+                expected.Username,
+                expected.Name,
+                "ada@example.com",
+                true,
+                25,
+                expected.AvatarColor,
+                expected.ProfileDescription,
+                expected.About,
+                expected.IsPublicProfile,
+                expected.CreatedAtUtc),
+            expected);
+        var service = new UserProfileService(repository);
+
+        var profile = await service.GetPublicByUsernameAsync("  ada  ");
+
+        Assert.Equal(expected, profile);
+        Assert.Equal("ada", repository.LastPublicLookupUsername);
+    }
+
+    [Fact]
     public async Task UserProfileService_RejectsCompletedOnboardingWithoutUsername()
     {
         var service = new UserProfileService(new StubUserProfileRepository(new UserProfileDto(
@@ -309,17 +345,36 @@ public class AuthAndDeckServiceTests
     private sealed class StubUserProfileRepository : IUserProfileRepository
     {
         private readonly UserProfileDto _profile;
+        private readonly PublicUserProfileDto _publicProfile;
         public string? LastAvailabilityUsername { get; private set; }
+        public string? LastPublicLookupUsername { get; private set; }
         public UpdateUserProfileCommand? LastUpdateCommand { get; private set; }
 
-        public StubUserProfileRepository(UserProfileDto profile)
+        public StubUserProfileRepository(UserProfileDto profile, PublicUserProfileDto? publicProfile = null)
         {
             _profile = profile;
+            _publicProfile = publicProfile ?? new PublicUserProfileDto(
+                profile.Id,
+                profile.Username ?? "user",
+                profile.Name,
+                profile.AvatarColor,
+                profile.ProfileDescription,
+                profile.About,
+                profile.IsPublicProfile,
+                profile.CreatedAtUtc,
+                profile.RecentActivity,
+                profile.Stats);
         }
 
         public Task<UserProfileDto?> GetByIdAsync(Guid userId, CancellationToken ct = default)
         {
             return Task.FromResult<UserProfileDto?>(_profile with { Id = userId });
+        }
+
+        public Task<PublicUserProfileDto?> GetPublicByUsernameAsync(string username, CancellationToken ct = default)
+        {
+            LastPublicLookupUsername = username;
+            return Task.FromResult<PublicUserProfileDto?>(_publicProfile with { Username = username });
         }
 
         public Task<bool> IsUsernameAvailableAsync(string username, Guid excludingUserId, CancellationToken ct = default)

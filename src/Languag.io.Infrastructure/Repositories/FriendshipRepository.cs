@@ -95,6 +95,7 @@ public sealed class FriendshipRepository : IFriendshipRepository
         var friends = items
             .Select(friend => new FriendDto(
                 friend.UserId,
+                friend.Username,
                 BuildDisplayName(friend.Username, friend.Name, friend.Email, friend.ExternalId),
                 null,
                 friend.CreatedAtUtc))

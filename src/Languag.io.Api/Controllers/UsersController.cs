@@ -40,6 +40,19 @@ public sealed class UsersController : ControllerBase
         return Ok(profile);
     }
 
+    [AllowAnonymous]
+    [HttpGet("by-username/{username}")]
+    public async Task<IActionResult> GetPublicProfileByUsername([FromRoute] string username, CancellationToken ct)
+    {
+        var profile = await _userProfileService.GetPublicByUsernameAsync(username, ct);
+        if (profile is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(profile);
+    }
+
     [HttpGet("username-availability")]
     public async Task<IActionResult> GetUsernameAvailability([FromQuery] string? username, CancellationToken ct)
     {

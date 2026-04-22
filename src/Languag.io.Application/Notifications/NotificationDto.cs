@@ -6,6 +6,7 @@ public sealed record NotificationDto(
     Guid Id,
     NotificationType Type,
     Guid? ActorUserId,
+    string? ActorUsername,
     string? ActorDisplayName,
     string? ActorAvatarUrl,
     string? EntityType,
