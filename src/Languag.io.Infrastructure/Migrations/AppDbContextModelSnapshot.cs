@@ -97,6 +97,45 @@ namespace Languag.io.Infrastructure.Migrations
                     b.ToTable("Cards");
                 });
 
+            modelBuilder.Entity("Languag.io.Domain.Entities.ActivityLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeckId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Metadata")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("StreakDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeckId");
+
+                    b.HasIndex("UserId", "OccurredAtUtc");
+
+                    b.HasIndex("UserId", "Type", "OccurredAtUtc");
+
+                    b.ToTable("ActivityLogs");
+                });
+
             modelBuilder.Entity("Languag.io.Domain.Entities.Deck", b =>
                 {
                     b.Property<Guid>("Id")
@@ -304,6 +343,24 @@ namespace Languag.io.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Deck");
+                });
+
+            modelBuilder.Entity("Languag.io.Domain.Entities.ActivityLog", b =>
+                {
+                    b.HasOne("Languag.io.Domain.Entities.Deck", "Deck")
+                        .WithMany("ActivityLogs")
+                        .HasForeignKey("DeckId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Languag.io.Domain.Entities.User", "User")
+                        .WithMany("ActivityLogs")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Deck");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Languag.io.Domain.Entities.Deck", b =>
