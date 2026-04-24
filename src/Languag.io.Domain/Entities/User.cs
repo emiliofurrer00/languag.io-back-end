@@ -12,6 +12,7 @@ public class User
     public bool HasBeenOnboarded { get; set; }
     public int DailyCardsGoal { get; set; }
     public string AvatarColor { get; set; } = "teal";
+    public string? ProfilePictureObjectKey { get; set; }
     public string ProfileDescription { get; set; } = string.Empty;
     public string About { get; set; } = string.Empty;
     public bool IsPublicProfile { get; set; }

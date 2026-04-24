@@ -10,6 +10,7 @@ using Languag.io.Application.Notifications;
 using Languag.io.Application.StudySessions;
 using Languag.io.Application.Users;
 using Languag.io.Infrastructure.Repositories;
+using Languag.io.Infrastructure.Storage;
 using Languag.io.Infrastructure.Users;
 
 namespace Languag.io.Infrastructure;
@@ -35,6 +36,9 @@ public static class DependencyInjection
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+        services.AddSingleton<S3ProfilePictureStorage>();
+        services.AddSingleton<IProfilePictureStorage>(sp => sp.GetRequiredService<S3ProfilePictureStorage>());
+        services.AddSingleton<IProfilePictureUrlBuilder>(sp => sp.GetRequiredService<S3ProfilePictureStorage>());
         // later: repositories, external services etc.
         return services;
     }

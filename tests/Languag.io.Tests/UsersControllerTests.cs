@@ -25,6 +25,8 @@ public sealed class UsersControllerTests
             "ada",
             "Ada Lovelace",
             "teal",
+            null,
+            null,
             "Linguist and builder",
             "I like language learning products.",
             true,
@@ -44,7 +46,8 @@ public sealed class UsersControllerTests
     {
         return new UsersController(
             new StubUserIdentityService(),
-            service ?? new StubUserProfileService())
+            service ?? new StubUserProfileService(),
+            new StubProfilePictureService())
         {
             ControllerContext = new ControllerContext
             {
@@ -83,6 +86,26 @@ public sealed class UsersControllerTests
         public Task<Guid> GetOrCreateUserIdAsync(AuthenticatedUser user, CancellationToken ct = default)
         {
             return Task.FromResult(Guid.NewGuid());
+        }
+    }
+
+    private sealed class StubProfilePictureService : IProfilePictureService
+    {
+        public Task<CreateProfilePictureUploadResult> CreateUploadAsync(
+            Guid userId,
+            string? contentType,
+            long contentLength,
+            CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<CompleteProfilePictureUploadResult> CompleteUploadAsync(
+            Guid userId,
+            string? objectKey,
+            CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

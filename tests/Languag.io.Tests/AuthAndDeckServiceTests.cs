@@ -162,6 +162,8 @@ public class AuthAndDeckServiceTests
             true,
             25,
             "teal",
+            null,
+            null,
             "Linguist and builder",
             "I like language learning products.",
             true,
@@ -182,6 +184,8 @@ public class AuthAndDeckServiceTests
             "ada",
             "Ada Lovelace",
             "teal",
+            null,
+            null,
             "Linguist and builder",
             "I like language learning products.",
             true,
@@ -197,6 +201,8 @@ public class AuthAndDeckServiceTests
                 true,
                 25,
                 expected.AvatarColor,
+                expected.ProfilePictureObjectKey,
+                expected.ProfilePictureUrl,
                 expected.ProfileDescription,
                 expected.About,
                 expected.IsPublicProfile,
@@ -222,6 +228,8 @@ public class AuthAndDeckServiceTests
             false,
             0,
             "teal",
+            null,
+            null,
             "",
             "",
             false,
@@ -254,6 +262,8 @@ public class AuthAndDeckServiceTests
             true,
             25,
             "teal",
+            null,
+            null,
             "Bio",
             "About",
             false,
@@ -358,6 +368,8 @@ public class AuthAndDeckServiceTests
                 profile.Username ?? "user",
                 profile.Name,
                 profile.AvatarColor,
+                profile.ProfilePictureObjectKey,
+                profile.ProfilePictureUrl,
                 profile.ProfileDescription,
                 profile.About,
                 profile.IsPublicProfile,
@@ -399,6 +411,19 @@ public class AuthAndDeckServiceTests
                     About = command.About,
                     IsPublicProfile = command.IsPublicProfile
                 }));
+        }
+
+        public Task<UpdateUserProfileResult> UpdateProfilePictureObjectKeyAsync(Guid userId, string objectKey, CancellationToken ct = default)
+        {
+            return Task.FromResult(new UpdateUserProfileResult(
+                UpdateUserProfileStatus.Updated,
+                _profile with
+                {
+                    Id = userId,
+                    ProfilePictureObjectKey = objectKey,
+                    ProfilePictureUrl = $"https://cdn.example.test/{objectKey}"
+                },
+                _profile.ProfilePictureObjectKey));
         }
     }
 }

@@ -5,6 +5,8 @@ public sealed record PublicUserProfileDto(
     string Username,
     string? Name,
     string AvatarColor,
+    string? ProfilePictureObjectKey,
+    string? ProfilePictureUrl,
     string ProfileDescription,
     string About,
     bool IsPublicProfile,

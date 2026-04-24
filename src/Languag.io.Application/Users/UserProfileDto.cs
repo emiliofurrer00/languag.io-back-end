@@ -9,6 +9,8 @@ public sealed record UserProfileDto(
     bool HasBeenOnboarded,
     int DailyCardsGoal,
     string AvatarColor,
+    string? ProfilePictureObjectKey,
+    string? ProfilePictureUrl,
     string ProfileDescription,
     string About,
     bool IsPublicProfile,
