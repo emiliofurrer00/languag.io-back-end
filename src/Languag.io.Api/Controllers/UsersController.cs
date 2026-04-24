@@ -3,6 +3,7 @@ using Languag.io.Api.Contracts.Users;
 using Languag.io.Application.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Languag.io.Api.Controllers;
 
@@ -13,11 +14,16 @@ public sealed class UsersController : ControllerBase
 {
     private readonly IUserIdentityService _userIdentityService;
     private readonly IUserProfileService _userProfileService;
+    private readonly IProfilePictureService _profilePictureService;
 
-    public UsersController(IUserIdentityService userIdentityService, IUserProfileService userProfileService)
+    public UsersController(
+        IUserIdentityService userIdentityService,
+        IUserProfileService userProfileService,
+        IProfilePictureService profilePictureService)
     {
         _userIdentityService = userIdentityService;
         _userProfileService = userProfileService;
+        _profilePictureService = profilePictureService;
     }
 
     [HttpGet("me")]
@@ -117,6 +123,73 @@ public sealed class UsersController : ControllerBase
             UpdateUserProfileStatus.Invalid => BadRequest(new ProblemDetails
             {
                 Title = "Invalid profile update",
+                Detail = result.Error,
+                Status = StatusCodes.Status400BadRequest
+            }),
+            _ => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
+
+    [EnableRateLimiting("profile-image-upload")]
+    [HttpPost("me/profile-picture/upload-request")]
+    public async Task<IActionResult> CreateProfilePictureUpload(
+        [FromBody] CreateProfilePictureUploadRequest request,
+        CancellationToken ct)
+    {
+        var authenticatedUser = User.ToAuthenticatedUser();
+        if (authenticatedUser is null)
+        {
+            return Unauthorized();
+        }
+
+        var userId = await _userIdentityService.GetOrCreateUserIdAsync(authenticatedUser, ct);
+        var result = await _profilePictureService.CreateUploadAsync(
+            userId,
+            request.ContentType,
+            request.ContentLength,
+            ct);
+
+        if (result.Status == CreateProfilePictureUploadStatus.Invalid || result.Target is null)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Invalid profile picture upload",
+                Detail = result.Error,
+                Status = StatusCodes.Status400BadRequest
+            });
+        }
+
+        return Ok(new CreateProfilePictureUploadResponse(
+            result.Target.UploadUrl,
+            result.Target.Fields,
+            result.Target.ObjectKey,
+            result.Target.PublicUrl,
+            result.Target.ExpiresAtUtc,
+            result.Target.MaxBytes));
+    }
+
+    [EnableRateLimiting("profile-image-upload")]
+    [HttpPost("me/profile-picture/complete")]
+    public async Task<IActionResult> CompleteProfilePictureUpload(
+        [FromBody] CompleteProfilePictureUploadRequest request,
+        CancellationToken ct)
+    {
+        var authenticatedUser = User.ToAuthenticatedUser();
+        if (authenticatedUser is null)
+        {
+            return Unauthorized();
+        }
+
+        var userId = await _userIdentityService.GetOrCreateUserIdAsync(authenticatedUser, ct);
+        var result = await _profilePictureService.CompleteUploadAsync(userId, request.ObjectKey, ct);
+
+        return result.Status switch
+        {
+            CompleteProfilePictureUploadStatus.Updated => Ok(result.Profile),
+            CompleteProfilePictureUploadStatus.NotFound => NotFound(),
+            CompleteProfilePictureUploadStatus.Invalid => BadRequest(new ProblemDetails
+            {
+                Title = "Invalid profile picture upload",
                 Detail = result.Error,
                 Status = StatusCodes.Status400BadRequest
             }),

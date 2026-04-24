@@ -9,64 +9,52 @@ namespace Languag.io.Infrastructure.Users;
 public sealed class UserProfileRepository : IUserProfileRepository
 {
     private readonly AppDbContext _dbContext;
+    private readonly IProfilePictureUrlBuilder _profilePictureUrlBuilder;
 
-    public UserProfileRepository(AppDbContext dbContext)
+    public UserProfileRepository(AppDbContext dbContext, IProfilePictureUrlBuilder profilePictureUrlBuilder)
     {
         _dbContext = dbContext;
+        _profilePictureUrlBuilder = profilePictureUrlBuilder;
     }
 
     public async Task<UserProfileDto?> GetByIdAsync(Guid userId, CancellationToken ct = default)
     {
-        var profile = await _dbContext.Users
+        var user = await _dbContext.Users
             .AsNoTracking()
             .Where(user => user.Id == userId)
-            .Select(user => new UserProfileDto(
-                user.Id,
-                user.ExternalId,
-                user.Username,
-                user.Name,
-                user.Email,
-                user.HasBeenOnboarded,
-                user.DailyCardsGoal,
-                user.AvatarColor,
-                user.ProfileDescription,
-                user.About,
-                user.IsPublicProfile,
-                user.CreatedAtUtc))
             .SingleOrDefaultAsync(ct);
 
-        if (profile is null)
+        if (user is null)
         {
             return null;
         }
 
-        return profile with
-        {
-            RecentActivity = await ReadRecentActivityAsync(userId, ct),
-            Stats = await ReadStatsAsync(userId, ct)
-        };
+        return await MapToDtoAsync(user, ct);
     }
 
     public async Task<PublicUserProfileDto?> GetPublicByUsernameAsync(string username, CancellationToken ct = default)
     {
-        var profile = await _dbContext.Users
+        var user = await _dbContext.Users
             .AsNoTracking()
             .Where(user => user.Username == username && user.IsPublicProfile)
-            .Select(user => new PublicUserProfileDto(
-                user.Id,
-                user.Username!,
-                user.Name,
-                user.AvatarColor,
-                user.ProfileDescription,
-                user.About,
-                user.IsPublicProfile,
-                user.CreatedAtUtc))
             .SingleOrDefaultAsync(ct);
 
-        if (profile is null)
+        if (user is null)
         {
             return null;
         }
+
+        var profile = new PublicUserProfileDto(
+            user.Id,
+            user.Username!,
+            user.Name,
+            user.AvatarColor,
+            user.ProfilePictureObjectKey,
+            _profilePictureUrlBuilder.BuildPublicUrl(user.ProfilePictureObjectKey),
+            user.ProfileDescription,
+            user.About,
+            user.IsPublicProfile,
+            user.CreatedAtUtc);
 
         return profile with
         {
@@ -118,6 +106,26 @@ public sealed class UserProfileRepository : IUserProfileRepository
             await MapToDtoAsync(user, ct));
     }
 
+    public async Task<UpdateUserProfileResult> UpdateProfilePictureObjectKeyAsync(Guid userId, string objectKey, CancellationToken ct = default)
+    {
+        var user = await _dbContext.Users.SingleOrDefaultAsync(existingUser => existingUser.Id == userId, ct);
+        if (user is null)
+        {
+            return new UpdateUserProfileResult(UpdateUserProfileStatus.NotFound);
+        }
+
+        var previousObjectKey = user.ProfilePictureObjectKey;
+        user.ProfilePictureObjectKey = objectKey;
+        user.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(ct);
+
+        return new UpdateUserProfileResult(
+            UpdateUserProfileStatus.Updated,
+            await MapToDtoAsync(user, ct),
+            previousObjectKey);
+    }
+
     private static bool IsUsernameConflict(DbUpdateException exception)
     {
         return exception.InnerException is PostgresException postgresException
@@ -136,6 +144,8 @@ public sealed class UserProfileRepository : IUserProfileRepository
             user.HasBeenOnboarded,
             user.DailyCardsGoal,
             user.AvatarColor,
+            user.ProfilePictureObjectKey,
+            _profilePictureUrlBuilder.BuildPublicUrl(user.ProfilePictureObjectKey),
             user.ProfileDescription,
             user.About,
             user.IsPublicProfile,

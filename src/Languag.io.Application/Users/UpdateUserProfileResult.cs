@@ -11,4 +11,5 @@ public enum UpdateUserProfileStatus
 public sealed record UpdateUserProfileResult(
     UpdateUserProfileStatus Status,
     UserProfileDto? Profile = null,
+    string? PreviousProfilePictureObjectKey = null,
     string? Error = null);
