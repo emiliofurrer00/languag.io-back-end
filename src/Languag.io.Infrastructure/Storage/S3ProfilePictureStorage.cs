@@ -14,6 +14,7 @@ namespace Languag.io.Infrastructure.Storage;
 
 public sealed class S3ProfilePictureStorage : IProfilePictureStorage
 {
+    private const int WebpSignatureLength = 12;
     private const string AwsAlgorithm = "AWS4-HMAC-SHA256";
     private const string AwsService = "s3";
     private readonly string? _accessKeyId;
@@ -131,7 +132,8 @@ public sealed class S3ProfilePictureStorage : IProfilePictureStorage
             return new UploadedProfilePictureObject(
                 objectKey,
                 response.Headers.ContentType,
-                response.Headers.ContentLength);
+                response.Headers.ContentLength,
+                await HasWebpSignatureAsync(objectKey, ct));
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -209,7 +211,8 @@ public sealed class S3ProfilePictureStorage : IProfilePictureStorage
     {
         if (string.IsNullOrWhiteSpace(_accessKeyId)
             || string.IsNullOrWhiteSpace(_secretAccessKey)
-            || string.IsNullOrWhiteSpace(_bucketName))
+            || string.IsNullOrWhiteSpace(_bucketName)
+            || string.IsNullOrWhiteSpace(_cloudFrontBaseUrl))
         {
             throw new InvalidOperationException(
                 "Profile image storage is not configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, AWS_S3_BUCKET, and CLOUDFRONT_BASE_URL.");
@@ -225,6 +228,48 @@ public sealed class S3ProfilePictureStorage : IProfilePictureStorage
             : new SessionAWSCredentials(_accessKeyId, _secretAccessKey, _sessionToken);
 
         return new AmazonS3Client(credentials, RegionEndpoint.GetBySystemName(_region));
+    }
+
+    private async Task<bool> HasWebpSignatureAsync(string objectKey, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await _s3Client.Value.GetObjectAsync(new GetObjectRequest
+            {
+                BucketName = _bucketName,
+                Key = objectKey
+            }, ct);
+
+            var buffer = new byte[WebpSignatureLength];
+            var totalRead = 0;
+            while (totalRead < buffer.Length)
+            {
+                var read = await response.ResponseStream.ReadAsync(
+                    buffer.AsMemory(totalRead, buffer.Length - totalRead),
+                    ct);
+
+                if (read == 0)
+                {
+                    break;
+                }
+
+                totalRead += read;
+            }
+
+            return totalRead == WebpSignatureLength
+                && buffer[0] == 'R'
+                && buffer[1] == 'I'
+                && buffer[2] == 'F'
+                && buffer[3] == 'F'
+                && buffer[8] == 'W'
+                && buffer[9] == 'E'
+                && buffer[10] == 'B'
+                && buffer[11] == 'P';
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
     }
 
     private string SignPolicy(string policy, string dateStamp)

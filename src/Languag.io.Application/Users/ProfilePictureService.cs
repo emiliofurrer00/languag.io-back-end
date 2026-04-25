@@ -62,7 +62,8 @@ public sealed class ProfilePictureService : IProfilePictureService
 
         if (!string.Equals(uploadedObject.ContentType, IProfilePictureStorage.UploadContentType, StringComparison.OrdinalIgnoreCase)
             || uploadedObject.ContentLength <= 0
-            || uploadedObject.ContentLength > _profilePictureStorage.MaxUploadBytes)
+            || uploadedObject.ContentLength > _profilePictureStorage.MaxUploadBytes
+            || !uploadedObject.HasExpectedSignature)
         {
             await _profilePictureStorage.DeleteObjectIfExistsAsync(objectKey, ct);
 

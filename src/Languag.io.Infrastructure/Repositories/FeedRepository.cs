@@ -175,7 +175,6 @@ public sealed class FeedRepository : IFeedRepository
                 activity.UserId,
                 Username = activity.User.Username,
                 Name = activity.User.Name,
-                Email = activity.User.Email,
                 ExternalId = activity.User.ExternalId,
                 AvatarColor = activity.User.AvatarColor,
                 activity.User.ProfilePictureObjectKey,
@@ -191,7 +190,7 @@ public sealed class FeedRepository : IFeedRepository
             .Select(activity =>
             {
                 var (action, target) = MapActivity(activity.Type, activity.DeckTitle, activity.StreakDays, activity.Metadata);
-                var displayName = BuildFeedDisplayName(activity.Username, activity.Name, activity.Email, activity.ExternalId);
+                var displayName = BuildFeedDisplayName(activity.Username, activity.Name, activity.ExternalId);
                 return new FeedActivityDto(
                     UserId: activity.UserId,
                     Username: activity.Username,
@@ -258,7 +257,6 @@ public sealed class FeedRepository : IFeedRepository
                 user.AvatarColor,
                 user.ProfileDescription,
                 user.About,
-                user.Email,
                 user.ExternalId,
                 user.ProfilePictureObjectKey
             })
@@ -267,7 +265,7 @@ public sealed class FeedRepository : IFeedRepository
         return users
             .Select(user =>
             {
-                var displayName = BuildFeedDisplayName(user.Username, user.Name, user.Email, user.ExternalId);
+                var displayName = BuildFeedDisplayName(user.Username, user.Name, user.ExternalId);
                 return new FeedSuggestedPersonDto(
                     UserId: user.Id,
                     Username: user.Username,
@@ -368,7 +366,7 @@ public sealed class FeedRepository : IFeedRepository
         return Math.Clamp(rounded, 0, 100);
     }
 
-    private static string BuildFeedDisplayName(string? username, string? name, string? email, string externalId)
+    private static string BuildFeedDisplayName(string? username, string? name, string externalId)
     {
         if (!string.IsNullOrWhiteSpace(name))
         {
@@ -380,12 +378,16 @@ public sealed class FeedRepository : IFeedRepository
             return username.Trim();
         }
 
-        if (!string.IsNullOrWhiteSpace(email))
-        {
-            return email.Trim();
-        }
+        return BuildAnonymousDisplayName(externalId);
+    }
 
-        return externalId;
+    private static string BuildAnonymousDisplayName(string externalId)
+    {
+        var suffix = string.IsNullOrWhiteSpace(externalId)
+            ? "guest"
+            : externalId.Trim()[..Math.Min(externalId.Trim().Length, 8)];
+
+        return $"User {suffix}";
     }
 
     private static string BuildAvatar(string displayName, string? username)

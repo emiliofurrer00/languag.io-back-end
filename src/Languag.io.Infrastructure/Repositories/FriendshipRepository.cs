@@ -56,7 +56,6 @@ public sealed class FriendshipRepository : IFriendshipRepository
                 friendship.CreatedAtUtc,
                 Username = friendship.User2.Username,
                 Name = friendship.User2.Name,
-                Email = friendship.User2.Email,
                 ExternalId = friendship.User2.ExternalId,
                 friendship.User2.ProfilePictureObjectKey
             });
@@ -70,7 +69,6 @@ public sealed class FriendshipRepository : IFriendshipRepository
                 friendship.CreatedAtUtc,
                 Username = friendship.User1.Username,
                 Name = friendship.User1.Name,
-                Email = friendship.User1.Email,
                 ExternalId = friendship.User1.ExternalId,
                 friendship.User1.ProfilePictureObjectKey
             });
@@ -101,7 +99,7 @@ public sealed class FriendshipRepository : IFriendshipRepository
             .Select(friend => new FriendDto(
                 friend.UserId,
                 friend.Username,
-                BuildDisplayName(friend.Username, friend.Name, friend.Email, friend.ExternalId),
+                BuildDisplayName(friend.Username, friend.Name, friend.ExternalId),
                 _profilePictureUrlBuilder.BuildPublicUrl(friend.ProfilePictureObjectKey),
                 friend.CreatedAtUtc))
             .ToArray();
@@ -118,7 +116,7 @@ public sealed class FriendshipRepository : IFriendshipRepository
         return _dbContext.SaveChangesAsync(ct);
     }
 
-    private static string BuildDisplayName(string? username, string? name, string? email, string externalId)
+    private static string BuildDisplayName(string? username, string? name, string externalId)
     {
         if (!string.IsNullOrWhiteSpace(username))
         {
@@ -130,12 +128,16 @@ public sealed class FriendshipRepository : IFriendshipRepository
             return name;
         }
 
-        if (!string.IsNullOrWhiteSpace(email))
-        {
-            return email;
-        }
-
-        return externalId;
+        return BuildAnonymousDisplayName(externalId);
     }
 
+    private static string BuildAnonymousDisplayName(string externalId)
+    {
+        var normalizedExternalId = externalId.Trim();
+        var suffix = string.IsNullOrWhiteSpace(normalizedExternalId)
+            ? "guest"
+            : normalizedExternalId[..Math.Min(normalizedExternalId.Length, 8)];
+
+        return $"User {suffix}";
+    }
 }

@@ -29,6 +29,9 @@ public class AppDbContext : DbContext
         {
             builder.HasKey(d => d.Id);
             builder.Property(d => d.Title).IsRequired().HasMaxLength(200);
+            builder.Property(d => d.Description).HasMaxLength(1000);
+            builder.Property(d => d.Category).HasMaxLength(80);
+            builder.Property(d => d.Color).HasMaxLength(20);
 
             builder.HasMany(d => d.Cards)
                    .WithOne(c => c.Deck!)
@@ -45,8 +48,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Card>(builder =>
         {
             builder.HasKey(c => c.Id);
-            builder.Property(c => c.FrontText).IsRequired();
-            builder.Property(c => c.BackText).IsRequired();
+            builder.Property(c => c.FrontText).IsRequired().HasMaxLength(1000);
+            builder.Property(c => c.BackText).IsRequired().HasMaxLength(1000);
+            builder.Property(c => c.ExampleSentence).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<User>(builder => {
@@ -61,8 +65,8 @@ public class AppDbContext : DbContext
             builder.Property(u => u.DailyCardsGoal).HasDefaultValue(0);
             builder.Property(u => u.AvatarColor).HasMaxLength(20).HasDefaultValue("teal");
             builder.Property(u => u.ProfilePictureObjectKey).HasMaxLength(512);
-            builder.Property(u => u.ProfileDescription).HasDefaultValue(string.Empty);
-            builder.Property(u => u.About).HasDefaultValue(string.Empty);
+            builder.Property(u => u.ProfileDescription).HasMaxLength(280).HasDefaultValue(string.Empty);
+            builder.Property(u => u.About).HasMaxLength(2000).HasDefaultValue(string.Empty);
             builder.Property(u => u.IsPublicProfile).HasDefaultValue(false);
             builder.HasIndex(u => u.ExternalId).IsUnique();
             builder.HasIndex(u => u.Username)

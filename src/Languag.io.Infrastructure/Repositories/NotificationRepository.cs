@@ -56,7 +56,6 @@ public sealed class NotificationRepository : INotificationRepository
                 notification.ActorUserId,
                 ActorUsername = notification.ActorUser != null ? notification.ActorUser.Username : null,
                 ActorName = notification.ActorUser != null ? notification.ActorUser.Name : null,
-                ActorEmail = notification.ActorUser != null ? notification.ActorUser.Email : null,
                 ActorExternalId = notification.ActorUser != null ? notification.ActorUser.ExternalId : null,
                 notification.EntityType,
                 notification.EntityId,
@@ -79,7 +78,7 @@ public sealed class NotificationRepository : INotificationRepository
                 notification.Type,
                 notification.ActorUserId,
                 notification.ActorUsername,
-                BuildDisplayName(notification.ActorUsername, notification.ActorName, notification.ActorEmail, notification.ActorExternalId),
+                BuildDisplayName(notification.ActorUsername, notification.ActorName, notification.ActorExternalId),
                 null,
                 notification.EntityType,
                 notification.EntityId,
@@ -122,7 +121,6 @@ public sealed class NotificationRepository : INotificationRepository
     private static string? BuildDisplayName(
         string? username,
         string? name,
-        string? email,
         string? externalId)
     {
         if (!string.IsNullOrWhiteSpace(username))
@@ -135,11 +133,18 @@ public sealed class NotificationRepository : INotificationRepository
             return name;
         }
 
-        if (!string.IsNullOrWhiteSpace(email))
-        {
-            return email;
-        }
+        return string.IsNullOrWhiteSpace(externalId)
+            ? null
+            : BuildAnonymousDisplayName(externalId);
+    }
 
-        return externalId;
+    private static string BuildAnonymousDisplayName(string externalId)
+    {
+        var normalizedExternalId = externalId.Trim();
+        var suffix = string.IsNullOrWhiteSpace(normalizedExternalId)
+            ? "guest"
+            : normalizedExternalId[..Math.Min(normalizedExternalId.Length, 8)];
+
+        return $"User {suffix}";
     }
 }

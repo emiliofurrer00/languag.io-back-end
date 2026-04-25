@@ -1,9 +1,10 @@
-using System.Text.Json;
+using System.Text;
 using Languag.io.Api.Contracts.Webhooks;
 using Languag.io.Api.Webhooks;
 using Languag.io.Application.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Languag.io.Api.Controllers;
 
@@ -13,30 +14,42 @@ namespace Languag.io.Api.Controllers;
 [Route("api/decks/users")]
 public sealed class UsersWebhookController : ControllerBase
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private const int MaxWebhookBodyBytes = 64 * 1024;
+    private static readonly TimeSpan MaxWebhookAge = TimeSpan.FromMinutes(10);
 
     private readonly IKindeWebhookDecoder _webhookDecoder;
     private readonly IUserIdentityService _userIdentityService;
+    private readonly IMemoryCache _webhookReplayCache;
     private readonly ILogger<UsersWebhookController> _logger;
 
     public UsersWebhookController(
         IKindeWebhookDecoder webhookDecoder,
         IUserIdentityService userIdentityService,
+        IMemoryCache webhookReplayCache,
         ILogger<UsersWebhookController> logger)
     {
         _webhookDecoder = webhookDecoder;
         _userIdentityService = userIdentityService;
+        _webhookReplayCache = webhookReplayCache;
         _logger = logger;
     }
 
     [HttpPost]
+    [RequestSizeLimit(MaxWebhookBodyBytes)]
     public async Task<IActionResult> Receive(CancellationToken ct)
     {
         var requestId = Request.Headers["webhook-id"].ToString();
         var mediaType = NormalizeMediaType(Request.ContentType);
+
+        if (Request.ContentLength is > MaxWebhookBodyBytes)
+        {
+            _logger.LogWarning(
+                "Rejected Kinde webhook {RequestId} because the request body exceeded {MaxWebhookBodyBytes} bytes.",
+                requestId,
+                MaxWebhookBodyBytes);
+            return StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
+
         var rawBody = await ReadRequestBodyAsync(Request, ct);
 
         if (!IsSupportedMediaType(mediaType, rawBody))
@@ -54,6 +67,15 @@ public sealed class UsersWebhookController : ControllerBase
             return BadRequest();
         }
 
+        if (Encoding.UTF8.GetByteCount(rawBody) > MaxWebhookBodyBytes)
+        {
+            _logger.LogWarning(
+                "Rejected Kinde webhook {RequestId} because the decoded request body exceeded {MaxWebhookBodyBytes} bytes.",
+                requestId,
+                MaxWebhookBodyBytes);
+            return StatusCode(StatusCodes.Status413PayloadTooLarge);
+        }
+
         var payload = await ParsePayloadAsync(rawBody, mediaType, ct);
         if (payload is null || string.IsNullOrWhiteSpace(payload.Type))
         {
@@ -65,25 +87,37 @@ public sealed class UsersWebhookController : ControllerBase
             return BadRequest();
         }
 
+        if (!IsFreshWebhook(payload))
+        {
+            _logger.LogWarning(
+                "Rejected Kinde webhook {RequestId} because its timestamp was missing or outside the allowed window. EventId={EventId}",
+                requestId,
+                payload.EventId);
+            return BadRequest();
+        }
+
+        var idempotencyKey = BuildIdempotencyKey(requestId, payload.EventId);
+        if (idempotencyKey is not null && _webhookReplayCache.TryGetValue(idempotencyKey, out _))
+        {
+            _logger.LogInformation(
+                "Ignored duplicate Kinde webhook {RequestId}. EventId={EventId}",
+                requestId,
+                payload.EventId);
+            return Ok();
+        }
+
         await HandleEventAsync(payload, requestId, ct);
+
+        if (idempotencyKey is not null)
+        {
+            _webhookReplayCache.Set(idempotencyKey, true, MaxWebhookAge);
+        }
+
         return Ok();
     }
 
     private async Task<WebhookEnvelope?> ParsePayloadAsync(string rawBody, string? mediaType, CancellationToken ct)
     {
-        if (mediaType == "application/json")
-        {
-            try
-            {
-                return JsonSerializer.Deserialize<WebhookEnvelope>(rawBody, SerializerOptions);
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogWarning(ex, "Failed to parse Kinde webhook JSON payload.");
-                return null;
-            }
-        }
-
         if (mediaType is null || mediaType == "application/jwt" || mediaType == "text/plain" || LooksLikeJwt(rawBody))
         {
             var decodeResult = await _webhookDecoder.DecodeAsync(rawBody, ct);
@@ -96,15 +130,7 @@ public sealed class UsersWebhookController : ControllerBase
             return decodeResult.Payload;
         }
 
-        try
-        {
-            return JsonSerializer.Deserialize<WebhookEnvelope>(rawBody, SerializerOptions);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning(ex, "Failed to parse fallback Kinde webhook payload.");
-            return null;
-        }
+        return null;
     }
 
     private async Task HandleEventAsync(WebhookEnvelope payload, string? requestId, CancellationToken ct)
@@ -184,13 +210,35 @@ public sealed class UsersWebhookController : ControllerBase
         return mediaType is null
             || mediaType == "application/jwt"
             || mediaType == "text/plain"
-            || mediaType == "application/json"
             || LooksLikeJwt(rawBody);
     }
 
     private static bool LooksLikeJwt(string rawBody)
     {
         return rawBody.Count(c => c == '.') == 2;
+    }
+
+    private static bool IsFreshWebhook(WebhookEnvelope payload)
+    {
+        var timestamp = payload.EventTimestamp ?? payload.Timestamp;
+        if (timestamp is null)
+        {
+            return false;
+        }
+
+        return (DateTimeOffset.UtcNow - timestamp.Value.ToUniversalTime()).Duration() <= MaxWebhookAge;
+    }
+
+    private static string? BuildIdempotencyKey(string? requestId, string? eventId)
+    {
+        if (!string.IsNullOrWhiteSpace(requestId))
+        {
+            return $"kinde-webhook-request:{requestId.Trim()}";
+        }
+
+        return string.IsNullOrWhiteSpace(eventId)
+            ? null
+            : $"kinde-webhook-event:{eventId.Trim()}";
     }
 
     private static string? BuildDisplayName(WebhookUser user)

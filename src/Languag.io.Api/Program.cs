@@ -4,18 +4,35 @@ using Languag.io.Application;
 using Languag.io.Infrastructure;
 using Languag.io.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Threading.RateLimiting;
 
+const long DefaultMaxRequestBodyBytes = 1024 * 1024;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Adding services to container
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize =
+        builder.Configuration.GetValue<long?>("RequestLimits:MaxBodyBytes")
+        ?? DefaultMaxRequestBodyBytes;
+});
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -49,7 +66,7 @@ builder.Services
     {
         options.Authority = kindeOptions.Authority;
         options.Audience = kindeOptions.Audience;
-        options.IncludeErrorDetails = true; //builder.Environment.IsDevelopment();
+        options.IncludeErrorDetails = builder.Environment.IsDevelopment();
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -74,9 +91,8 @@ builder.Services
                     .CreateLogger("KindeJwt");
 
                 logger.LogWarning(
-                    "JWT challenge triggered. Error={Error}, Description={Description}",
-                    context.Error,
-                    context.ErrorDescription);
+                    "JWT challenge triggered. Error={Error}",
+                    context.Error);
 
                 return Task.CompletedTask;
             },
@@ -86,12 +102,10 @@ builder.Services
                     .GetRequiredService<ILoggerFactory>()
                     .CreateLogger("KindeJwt");
 
-                var subject = context.Principal?.FindFirst("sub")?.Value;
                 var audiences = context.Principal?.FindAll("aud").Select(claim => claim.Value).ToArray() ?? [];
 
-                logger.LogInformation(
-                    "JWT validated for subject {Subject}. Audiences: {Audiences}",
-                    subject,
+                logger.LogDebug(
+                    "JWT validated. Audiences: {Audiences}",
                     string.Join(", ", audiences));
 
                 return Task.CompletedTask;
@@ -125,17 +139,18 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Run migrations at startup
-// Might want to gate this with an env var later
-using (var scope = app.Services.CreateScope())
+var applyMigrationsOnStartup =
+    builder.Configuration.GetValue<bool?>("ApplyMigrationsOnStartup")
+    ?? app.Environment.IsDevelopment();
+
+if (applyMigrationsOnStartup)
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
 }
 
-app.UseCors(
-    options => options.WithOrigins(["http://localhost:3000", "https://languagio.vercel.app", "52.215.16.239", "54.216.8.72", "63.33.109.123", "2a05:d028:17:8000::/56"]).AllowAnyHeader().AllowAnyMethod()
-);
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
@@ -146,7 +161,17 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-//app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+app.UseCors(
+    options => options.WithOrigins(ReadAllowedOrigins(builder.Configuration))
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+);
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -155,3 +180,37 @@ app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
+
+static string[] ReadAllowedOrigins(IConfiguration configuration)
+{
+    var originsFromEnv = (configuration["CORS_ALLOWED_ORIGINS"] ?? string.Empty)
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(origin => origin.TrimEnd('/'))
+        .Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    if (originsFromEnv.Length > 0)
+    {
+        return originsFromEnv;
+    }
+
+    var configuredOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+    if (configuredOrigins is { Length: > 0 })
+    {
+        var validConfiguredOrigins = configuredOrigins
+            .Select(origin => origin.Trim().TrimEnd('/'))
+            .Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (validConfiguredOrigins.Length > 0)
+        {
+            return validConfiguredOrigins;
+        }
+    }
+
+    return ["http://localhost:3000", "https://languagio.vercel.app"];
+}

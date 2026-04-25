@@ -80,7 +80,7 @@ public sealed class FriendRequestRepository : IFriendRequestRepository
         return Math.Clamp(requestedPageSize, 1, MaximumPageSize);
     }
 
-    private static string BuildDisplayName(string? username, string? name, string? email, string externalId)
+    private static string BuildDisplayName(string? username, string? name, string externalId)
     {
         if (!string.IsNullOrWhiteSpace(username))
         {
@@ -92,12 +92,17 @@ public sealed class FriendRequestRepository : IFriendRequestRepository
             return name;
         }
 
-        if (!string.IsNullOrWhiteSpace(email))
-        {
-            return email;
-        }
+        return BuildAnonymousDisplayName(externalId);
+    }
 
-        return externalId;
+    private static string BuildAnonymousDisplayName(string externalId)
+    {
+        var normalizedExternalId = externalId.Trim();
+        var suffix = string.IsNullOrWhiteSpace(normalizedExternalId)
+            ? "guest"
+            : normalizedExternalId[..Math.Min(normalizedExternalId.Length, 8)];
+
+        return $"User {suffix}";
     }
 
     private async Task<CursorPage<FriendRequestDto>> ReadPageAsync(
@@ -124,12 +129,10 @@ public sealed class FriendRequestRepository : IFriendRequestRepository
                 friendRequest.SenderId,
                 SenderUsername = friendRequest.Sender.Username,
                 SenderName = friendRequest.Sender.Name,
-                SenderEmail = friendRequest.Sender.Email,
                 SenderExternalId = friendRequest.Sender.ExternalId,
                 friendRequest.ReceiverId,
                 ReceiverUsername = friendRequest.Receiver.Username,
                 ReceiverName = friendRequest.Receiver.Name,
-                ReceiverEmail = friendRequest.Receiver.Email,
                 ReceiverExternalId = friendRequest.Receiver.ExternalId,
                 friendRequest.Status
             })
@@ -147,11 +150,11 @@ public sealed class FriendRequestRepository : IFriendRequestRepository
                 friendRequest.Id,
                 friendRequest.SenderId,
                 friendRequest.SenderUsername,
-                BuildDisplayName(friendRequest.SenderUsername, friendRequest.SenderName, friendRequest.SenderEmail, friendRequest.SenderExternalId),
+                BuildDisplayName(friendRequest.SenderUsername, friendRequest.SenderName, friendRequest.SenderExternalId),
                 null,
                 friendRequest.ReceiverId,
                 friendRequest.ReceiverUsername,
-                BuildDisplayName(friendRequest.ReceiverUsername, friendRequest.ReceiverName, friendRequest.ReceiverEmail, friendRequest.ReceiverExternalId),
+                BuildDisplayName(friendRequest.ReceiverUsername, friendRequest.ReceiverName, friendRequest.ReceiverExternalId),
                 null,
                 friendRequest.Status,
                 friendRequest.CreatedAtUtc))

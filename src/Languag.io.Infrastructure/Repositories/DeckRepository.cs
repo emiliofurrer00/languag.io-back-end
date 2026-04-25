@@ -30,7 +30,7 @@ public class DeckRepository : IDeckRepository
                     .OrderBy(c => c.Order)
                     .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
                     .ToList(),
-                d.User.Username ?? ""
+                d.User != null ? d.User.Username ?? "" : ""
             ))
             .ToListAsync(ct);
     }
@@ -53,7 +53,7 @@ public class DeckRepository : IDeckRepository
                     .OrderBy(c => c.Order)
                     .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
                     .ToList(),
-                d.User.Username ?? ""
+                d.User != null ? d.User.Username ?? "" : ""
                 
             ))
             .ToListAsync(ct);
@@ -102,7 +102,7 @@ public class DeckRepository : IDeckRepository
                     .OrderBy(c => c.Order)
                     .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
                     .ToList(),
-                d.User.Username ?? ""
+                d.User != null ? d.User.Username ?? "" : ""
              ))
             .FirstOrDefaultAsync();
     }

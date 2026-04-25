@@ -11,7 +11,8 @@ public sealed record ProfilePictureUploadTarget(
 public sealed record UploadedProfilePictureObject(
     string ObjectKey,
     string? ContentType,
-    long ContentLength);
+    long ContentLength,
+    bool HasExpectedSignature);
 
 public enum CreateProfilePictureUploadStatus
 {
