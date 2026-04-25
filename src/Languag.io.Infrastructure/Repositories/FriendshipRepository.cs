@@ -1,5 +1,6 @@
 using Languag.io.Application.Common;
 using Languag.io.Application.Friends;
+using Languag.io.Application.Users;
 using Languag.io.Domain.Entities;
 using Languag.io.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -10,10 +11,12 @@ public sealed class FriendshipRepository : IFriendshipRepository
 {
     private const int MaximumPageSize = 100;
     private readonly AppDbContext _dbContext;
+    private readonly IProfilePictureUrlBuilder _profilePictureUrlBuilder;
 
-    public FriendshipRepository(AppDbContext dbContext)
+    public FriendshipRepository(AppDbContext dbContext, IProfilePictureUrlBuilder profilePictureUrlBuilder)
     {
         _dbContext = dbContext;
+        _profilePictureUrlBuilder = profilePictureUrlBuilder;
     }
 
     public Task<bool> ExistsAsync(Guid user1Id, Guid user2Id, CancellationToken ct = default)
@@ -54,7 +57,8 @@ public sealed class FriendshipRepository : IFriendshipRepository
                 Username = friendship.User2.Username,
                 Name = friendship.User2.Name,
                 Email = friendship.User2.Email,
-                ExternalId = friendship.User2.ExternalId
+                ExternalId = friendship.User2.ExternalId,
+                friendship.User2.ProfilePictureObjectKey
             });
 
         var asUser2 = _dbContext.Friendships
@@ -67,7 +71,8 @@ public sealed class FriendshipRepository : IFriendshipRepository
                 Username = friendship.User1.Username,
                 Name = friendship.User1.Name,
                 Email = friendship.User1.Email,
-                ExternalId = friendship.User1.ExternalId
+                ExternalId = friendship.User1.ExternalId,
+                friendship.User1.ProfilePictureObjectKey
             });
 
         var combinedQuery = asUser1.Concat(asUser2);
@@ -97,7 +102,7 @@ public sealed class FriendshipRepository : IFriendshipRepository
                 friend.UserId,
                 friend.Username,
                 BuildDisplayName(friend.Username, friend.Name, friend.Email, friend.ExternalId),
-                null,
+                _profilePictureUrlBuilder.BuildPublicUrl(friend.ProfilePictureObjectKey),
                 friend.CreatedAtUtc))
             .ToArray();
 

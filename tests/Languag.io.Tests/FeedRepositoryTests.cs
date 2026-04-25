@@ -1,5 +1,6 @@
 using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
+using Languag.io.Application.Users;
 using Languag.io.Domain.Entities;
 using Languag.io.Domain.Enums;
 using Languag.io.Infrastructure.Persistence;
@@ -15,32 +16,29 @@ public sealed class FeedRepositoryTests
     public async Task GetFeedAsync_BuildsFeedFromPersistedData()
     {
         await using var context = await CreateContextAsync();
-        var repository = new FeedRepository(context);
-        var now = DateTime.UtcNow;
+        var repository = new FeedRepository(context, new StubProfilePictureUrlBuilder());
+        var now = DateTime.UtcNow.Date.AddHours(12);
 
-        var currentUser = CreateUser("current", "currentuser")
-        {
-            DailyCardsGoal = 20,
-            IsPublicProfile = true
-        };
-        var friend = CreateUser("friend", "friendly")
-        {
-            Name = "Friendly Learner",
-            AvatarColor = "magenta",
-            IsPublicProfile = true,
-            ProfileDescription = "Spanish learner"
-        };
-        var pendingUser = CreateUser("pending", "pendingpal")
-        {
-            IsPublicProfile = true
-        };
-        var suggestedUser = CreateUser("suggested", "suggestedone")
-        {
-            Name = "Suggested Person",
-            AvatarColor = "blue",
-            IsPublicProfile = true,
-            ProfileDescription = "Enjoys public decks"
-        };
+        var currentUser = CreateUser("current", "currentuser");
+        currentUser.DailyCardsGoal = 20;
+        currentUser.IsPublicProfile = true;
+
+        var friend = CreateUser("friend", "friendly");
+        friend.Name = "Friendly Learner";
+        friend.AvatarColor = "magenta";
+        friend.IsPublicProfile = true;
+        friend.ProfileDescription = "Spanish learner";
+        friend.ProfilePictureObjectKey = "profile-pictures/friend.webp";
+
+        var pendingUser = CreateUser("pending", "pendingpal");
+        pendingUser.IsPublicProfile = true;
+
+        var suggestedUser = CreateUser("suggested", "suggestedone");
+        suggestedUser.Name = "Suggested Person";
+        suggestedUser.AvatarColor = "blue";
+        suggestedUser.IsPublicProfile = true;
+        suggestedUser.ProfileDescription = "Enjoys public decks";
+        suggestedUser.ProfilePictureObjectKey = "profile-pictures/suggested.webp";
 
         context.Users.AddRange(currentUser, friend, pendingUser, suggestedUser);
         await context.SaveChangesAsync();
@@ -173,11 +171,13 @@ public sealed class FeedRepositoryTests
         Assert.Equal(friend.Id, activity.UserId);
         Assert.Equal("mastered", activity.Action);
         Assert.Equal("Spanish Basics", activity.Target);
+        Assert.Equal("https://cdn.example.test/profile-pictures/friend.webp", activity.ProfilePictureUrl);
         Assert.True(activity.FollowsYou);
         Assert.True(activity.IsFollowing);
 
         var suggestedPerson = Assert.Single(feed.SuggestedPeople);
         Assert.Equal(suggestedUser.Id, suggestedPerson.UserId);
+        Assert.Equal("https://cdn.example.test/profile-pictures/suggested.webp", suggestedPerson.ProfilePictureUrl);
         Assert.Equal(FriendshipStatuses.None, suggestedPerson.FriendshipStatus);
 
         var suggestedDeck = Assert.Single(feed.SuggestedDecks);
@@ -214,5 +214,15 @@ public sealed class FeedRepositoryTests
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow
         };
+    }
+
+    private sealed class StubProfilePictureUrlBuilder : IProfilePictureUrlBuilder
+    {
+        public string? BuildPublicUrl(string? objectKey)
+        {
+            return string.IsNullOrWhiteSpace(objectKey)
+                ? null
+                : $"https://cdn.example.test/{objectKey}";
+        }
     }
 }

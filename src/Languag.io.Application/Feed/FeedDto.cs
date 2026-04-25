@@ -41,6 +41,7 @@ public sealed record FeedActivityDto(
     string? Username,
     string User,
     string Avatar,
+    string? ProfilePictureUrl,
     string Color,
     string Action,
     string? Target,
@@ -55,6 +56,7 @@ public sealed record FeedSuggestedPersonDto(
     string Name,
     string Handle,
     string Avatar,
+    string? ProfilePictureUrl,
     string Color,
     string Bio,
     string FriendshipStatus);

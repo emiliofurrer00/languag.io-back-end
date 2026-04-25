@@ -1,5 +1,6 @@
 using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
+using Languag.io.Application.Users;
 using Languag.io.Domain.Entities;
 using Languag.io.Domain.Enums;
 using Languag.io.Infrastructure.Persistence;
@@ -18,10 +19,12 @@ public sealed class FeedRepository : IFeedRepository
     private static readonly HashSet<string> AllowedColors = ["yellow", "teal", "magenta", "coral", "blue"];
 
     private readonly AppDbContext _dbContext;
+    private readonly IProfilePictureUrlBuilder _profilePictureUrlBuilder;
 
-    public FeedRepository(AppDbContext dbContext)
+    public FeedRepository(AppDbContext dbContext, IProfilePictureUrlBuilder profilePictureUrlBuilder)
     {
         _dbContext = dbContext;
+        _profilePictureUrlBuilder = profilePictureUrlBuilder;
     }
 
     public async Task<FeedDto?> GetFeedAsync(Guid currentUserId, CancellationToken ct = default)
@@ -175,6 +178,7 @@ public sealed class FeedRepository : IFeedRepository
                 Email = activity.User.Email,
                 ExternalId = activity.User.ExternalId,
                 AvatarColor = activity.User.AvatarColor,
+                activity.User.ProfilePictureObjectKey,
                 activity.Type,
                 activity.StreakDays,
                 activity.Metadata,
@@ -193,6 +197,7 @@ public sealed class FeedRepository : IFeedRepository
                     Username: activity.Username,
                     User: displayName,
                     Avatar: BuildAvatar(displayName, activity.Username),
+                    ProfilePictureUrl: _profilePictureUrlBuilder.BuildPublicUrl(activity.ProfilePictureObjectKey),
                     Color: ToColorClass(activity.AvatarColor),
                     Action: action,
                     Target: target,
@@ -254,7 +259,8 @@ public sealed class FeedRepository : IFeedRepository
                 user.ProfileDescription,
                 user.About,
                 user.Email,
-                user.ExternalId
+                user.ExternalId,
+                user.ProfilePictureObjectKey
             })
             .ToListAsync(ct);
 
@@ -268,6 +274,7 @@ public sealed class FeedRepository : IFeedRepository
                     Name: displayName,
                     Handle: user.Username,
                     Avatar: BuildAvatar(displayName, user.Username),
+                    ProfilePictureUrl: _profilePictureUrlBuilder.BuildPublicUrl(user.ProfilePictureObjectKey),
                     Color: ToColorClass(user.AvatarColor),
                     Bio: BuildBio(user.ProfileDescription, user.About),
                     FriendshipStatus: FriendshipStatuses.None);
