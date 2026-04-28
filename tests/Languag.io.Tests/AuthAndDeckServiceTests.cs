@@ -109,6 +109,103 @@ public class AuthAndDeckServiceTests
     }
 
     [Fact]
+    public async Task UpdateDeckAsync_PreservesExistingCardIdsAndRemovesOnlyOmittedCards()
+    {
+        var ownerId = Guid.NewGuid();
+        var deckId = Guid.NewGuid();
+        var retainedCardId = Guid.NewGuid();
+        var removedCardId = Guid.NewGuid();
+        var originalCreatedAt = DateTime.UtcNow.AddDays(-7);
+        var repository = new CapturingDeckRepository
+        {
+            DeckForUpdate = new Deck
+            {
+                Id = deckId,
+                OwnerId = ownerId,
+                Title = "Spanish Basics",
+                Description = "Old description",
+                Category = "Spanish",
+                Color = "teal",
+                Visibility = DeckVisibility.Private,
+                CreatedAtUtc = originalCreatedAt,
+                UpdatedAtUtc = originalCreatedAt,
+                Cards =
+                [
+                    new Card
+                    {
+                        Id = retainedCardId,
+                        DeckId = deckId,
+                        FrontText = "hola",
+                        BackText = "hello",
+                        ExampleSentence = "Hola.",
+                        Order = 0,
+                        CreatedAtUtc = originalCreatedAt,
+                        UpdatedAtUtc = originalCreatedAt
+                    },
+                    new Card
+                    {
+                        Id = removedCardId,
+                        DeckId = deckId,
+                        FrontText = "adios",
+                        BackText = "goodbye",
+                        Order = 1,
+                        CreatedAtUtc = originalCreatedAt,
+                        UpdatedAtUtc = originalCreatedAt
+                    }
+                ]
+            }
+        };
+        var service = new DeckService(repository, new CapturingActivityLogRepository());
+
+        var result = await service.UpdateDeckAsync(
+            new UpdateDeckCommand(
+                deckId,
+                "Spanish Basics Updated",
+                "New description",
+                "Language",
+                "blue",
+                DeckVisibility.Public,
+                [
+                    new Card
+                    {
+                        Id = retainedCardId,
+                        FrontText = "hola!",
+                        BackText = "hello!",
+                        ExampleSentence = "Hola a todos.",
+                        Order = 2
+                    },
+                    new Card
+                    {
+                        FrontText = "gracias",
+                        BackText = "thanks",
+                        ExampleSentence = "Muchas gracias.",
+                        Order = 1
+                    }
+                ]),
+            ownerId);
+
+        Assert.True(result);
+        Assert.True(repository.SaveChangesCalled);
+        var updatedCard = Assert.Single(repository.DeckForUpdate.Cards, card => card.Id == retainedCardId);
+        Assert.Equal("hola!", updatedCard.FrontText);
+        Assert.Equal("hello!", updatedCard.BackText);
+        Assert.Equal("Hola a todos.", updatedCard.ExampleSentence);
+        Assert.Equal(2, updatedCard.Order);
+        Assert.Equal(originalCreatedAt, updatedCard.CreatedAtUtc);
+
+        var removedCard = Assert.Single(repository.RemovedCards);
+        Assert.Equal(removedCardId, removedCard.Id);
+
+        var addedCard = Assert.Single(repository.AddedCards);
+        Assert.NotEqual(Guid.Empty, addedCard.Id);
+        Assert.Equal(deckId, addedCard.DeckId);
+        Assert.Equal("gracias", addedCard.FrontText);
+        Assert.Equal("thanks", addedCard.BackText);
+        Assert.Equal("Muchas gracias.", addedCard.ExampleSentence);
+        Assert.Equal(1, addedCard.Order);
+    }
+
+    [Fact]
     public void WebhookEnvelope_MapsKindeDocumentedUserPayloadShape()
     {
         const string json = """
@@ -280,6 +377,9 @@ public class AuthAndDeckServiceTests
     private sealed class CapturingDeckRepository : IDeckRepository
     {
         public Deck? AddedDeck { get; private set; }
+        public Deck? DeckForUpdate { get; init; }
+        public List<Card> AddedCards { get; } = [];
+        public List<Card> RemovedCards { get; } = [];
         public bool SaveChangesCalled { get; private set; }
         public bool UserHasDecksResult { get; init; }
 
@@ -317,12 +417,17 @@ public class AuthAndDeckServiceTests
 
         public Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return Task.FromResult(
+                DeckForUpdate is not null &&
+                DeckForUpdate.Id == deckId &&
+                DeckForUpdate.OwnerId == ownerId
+                    ? DeckForUpdate
+                    : null);
         }
 
         public void RemoveCards(IEnumerable<Card> cards)
         {
-            throw new NotImplementedException();
+            RemovedCards.AddRange(cards);
         }
 
         public Task DeleteCardsByDeckIdAsync(Guid deckId, CancellationToken ct = default)
@@ -332,7 +437,8 @@ public class AuthAndDeckServiceTests
 
         public Task AddCardAsync(Card card, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            AddedCards.Add(card);
+            return Task.CompletedTask;
         }
 
         public Task<bool> DeckExistsAsync(Guid deckId, CancellationToken ct = default)

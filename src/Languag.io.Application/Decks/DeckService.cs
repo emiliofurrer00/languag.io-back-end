@@ -95,12 +95,27 @@ public class DeckService : IDeckService
         deck.Visibility = command.Visibility;
         deck.UpdatedAtUtc = now;
 
-        // Set-based delete (no tracked cards exist now)
-        await _deckRepository.DeleteCardsByDeckIdAsync(deck.Id, ct);
+        var existingCardsById = deck.Cards.ToDictionary(card => card.Id);
+        var retainedCardIds = new HashSet<Guid>();
 
-        // Insert new cards (ignore incoming ids)
         foreach (var dto in command.Cards.OrderBy(c => c.Order))
         {
+            if (dto.Id != Guid.Empty &&
+                existingCardsById.TryGetValue(dto.Id, out var existingCard))
+            {
+                if (!retainedCardIds.Add(existingCard.Id))
+                {
+                    continue;
+                }
+
+                existingCard.FrontText = dto.FrontText;
+                existingCard.BackText = dto.BackText;
+                existingCard.ExampleSentence = dto.ExampleSentence;
+                existingCard.Order = dto.Order;
+                existingCard.UpdatedAtUtc = now;
+                continue;
+            }
+
             await _deckRepository.AddCardAsync(new Card
             {
                 Id = Guid.NewGuid(),
@@ -113,6 +128,12 @@ public class DeckService : IDeckService
                 UpdatedAtUtc = now
             }, ct);
         }
+
+        var removedCards = deck.Cards
+            .Where(card => !retainedCardIds.Contains(card.Id))
+            .ToArray();
+
+        _deckRepository.RemoveCards(removedCards);
 
         await _deckRepository.SaveChangesAsync(ct);
         return true;

@@ -90,6 +90,7 @@ public class DeckRepository : IDeckRepository
     public async Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default)
     {
         return await _dbContext.Decks
+            .Include(d => d.Cards)
             .FirstOrDefaultAsync(d => d.Id == deckId && d.OwnerId == ownerId, ct);
     }
 
