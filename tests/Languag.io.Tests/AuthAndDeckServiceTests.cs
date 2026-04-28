@@ -283,12 +283,12 @@ public class AuthAndDeckServiceTests
         public bool SaveChangesCalled { get; private set; }
         public bool UserHasDecksResult { get; init; }
 
-        public Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default)
+        public Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
         {
             throw new NotImplementedException();
         }
 
-        public Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, CancellationToken ct = default)
+        public Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
         {
             throw new NotImplementedException();
         }

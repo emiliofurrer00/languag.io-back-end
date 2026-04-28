@@ -13,49 +13,29 @@ public class DeckRepository : IDeckRepository
     {
         _dbContext = dbContext;
     }
-    public async Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
     {
-        return await _dbContext.Decks
+        var decksQuery = _dbContext.Decks
+            .AsNoTracking()
             .Where(d => d.Visibility == DeckVisibility.Public)
-            .Include(d => d.User)
+            .Include(d => d.User);
+
+        return await ApplyListFilters(decksQuery, query)
             .OrderByDescending(d => d.UpdatedAtUtc)
-            .Select(d => new DeckDto(
-                d.Id,
-                d.Title,
-                d.Category ?? string.Empty,
-                d.Description,
-                d.Visibility,
-                d.Color,
-                d.Cards
-                    .OrderBy(c => c.Order)
-                    .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
-                    .ToList(),
-                d.User != null ? d.User.Username ?? "" : ""
-            ))
+            .Select(d => MapToDeckDto(d))
             .ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
     {
-        return await _dbContext.Decks
+        var decksQuery = _dbContext.Decks
             .AsNoTracking()
             .Include(d => d.User)
-            .Where(d => d.OwnerId == ownerId || d.Visibility == DeckVisibility.Public)
+            .Where(d => d.OwnerId == ownerId || d.Visibility == DeckVisibility.Public);
+
+        return await ApplyListFilters(decksQuery, query)
             .OrderByDescending(d => d.UpdatedAtUtc)
-            .Select(d => new DeckDto(
-                d.Id,
-                d.Title,
-                d.Category ?? string.Empty,
-                d.Description,
-                d.Visibility,
-                d.Color,
-                d.Cards
-                    .OrderBy(c => c.Order)
-                    .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
-                    .ToList(),
-                d.User != null ? d.User.Username ?? "" : ""
-                
-            ))
+            .Select(d => MapToDeckDto(d))
             .ToListAsync(ct);
     }
 
@@ -130,4 +110,48 @@ public class DeckRepository : IDeckRepository
 
     public async Task AddCardAsync(Card card, CancellationToken ct) =>
         await _dbContext.Cards.AddAsync(card, ct);
+
+    private static IQueryable<Deck> ApplyListFilters(IQueryable<Deck> query, DeckListQuery? filters)
+    {
+        var ownerUsername = filters?.NormalizedOwnerUsername;
+        if (!string.IsNullOrWhiteSpace(ownerUsername))
+        {
+            var normalizedOwnerUsername = ownerUsername.ToLower();
+            query = query.Where(d =>
+                d.User != null &&
+                d.User.Username != null &&
+                d.User.Username.ToLower() == normalizedOwnerUsername);
+        }
+
+        var searchQuery = filters?.NormalizedSearchQuery;
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var normalizedSearchQuery = searchQuery.ToLower();
+            query = query.Where(d =>
+                d.Title.ToLower().Contains(normalizedSearchQuery) ||
+                (d.Description != null && d.Description.ToLower().Contains(normalizedSearchQuery)) ||
+                (d.Category != null && d.Category.ToLower().Contains(normalizedSearchQuery)) ||
+                (d.User != null && d.User.Username != null && d.User.Username.ToLower().Contains(normalizedSearchQuery)) ||
+                (d.User != null && d.User.Name != null && d.User.Name.ToLower().Contains(normalizedSearchQuery)));
+        }
+
+        return query;
+    }
+
+    private static DeckDto MapToDeckDto(Deck deck)
+    {
+        return new DeckDto(
+            deck.Id,
+            deck.Title,
+            deck.Category ?? string.Empty,
+            deck.Description,
+            deck.Visibility,
+            deck.Color,
+            deck.Cards
+                .OrderBy(c => c.Order)
+                .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
+                .ToList(),
+            deck.User != null ? deck.User.Username ?? "" : ""
+        );
+    }
 }

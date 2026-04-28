@@ -17,14 +17,14 @@ public class DeckService : IDeckService
         _activityLogRepository = activityLogRepository;
     }
 
-    public async Task<IEnumerable<DeckDto>> GetPublicDecksAsync(CancellationToken ct = default)
+    public async Task<IEnumerable<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
     {
-        return await _deckRepository.GetPublicDecksAsync(ct);
+        return await _deckRepository.GetPublicDecksAsync(query, ct);
     }
 
-    public async Task<IEnumerable<DeckDto>> GetVisibleDecksAsync(Guid ownerId, CancellationToken ct = default)
+    public async Task<IEnumerable<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
     {
-        return await _deckRepository.GetVisibleDecksAsync(ownerId, ct);
+        return await _deckRepository.GetVisibleDecksAsync(ownerId, query, ct);
     }
 
     public async Task<Guid> CreateDeckAsync(CreateDeckCommand command, Guid ownerId, CancellationToken ct = default)

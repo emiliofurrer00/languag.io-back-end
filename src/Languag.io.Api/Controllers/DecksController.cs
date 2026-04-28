@@ -30,7 +30,7 @@ public class DecksController : ControllerBase
     // GET: api/decks
     [Authorize]
     [HttpGet]
-    public async Task<IActionResult> GetVisibleDecks(CancellationToken ct)
+    public async Task<IActionResult> GetVisibleDecks([FromQuery] DeckListQuery query, CancellationToken ct)
     {
         var currentUserId = await GetCurrentUserIdAsync(ct);
         if (currentUserId is null)
@@ -38,15 +38,15 @@ public class DecksController : ControllerBase
             return Unauthorized();
         }
 
-        var decks = await _deckService.GetVisibleDecksAsync(currentUserId.Value, ct);
+        var decks = await _deckService.GetVisibleDecksAsync(currentUserId.Value, query, ct);
         return Ok(decks);
     }
 
     // GET: api/decks/public
     [HttpGet("public")]
-    public async Task<IActionResult> GetPublicDecks(CancellationToken ct)
+    public async Task<IActionResult> GetPublicDecks([FromQuery] DeckListQuery query, CancellationToken ct)
     {
-        var decks = await _deckService.GetPublicDecksAsync(ct);
+        var decks = await _deckService.GetPublicDecksAsync(query, ct);
         return Ok(decks);
     }
 
