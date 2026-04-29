@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<Card> Cards => Set<Card>();
+    public DbSet<CardChoice> CardChoices => Set<CardChoice>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<StudySession> StudySessions => Set<StudySession>();
@@ -49,9 +50,22 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Card>(builder =>
         {
             builder.HasKey(c => c.Id);
+            builder.Property(c => c.Type).IsRequired().HasMaxLength(40).HasDefaultValue(CardTypes.Flashcard);
             builder.Property(c => c.FrontText).IsRequired().HasMaxLength(1000);
             builder.Property(c => c.BackText).IsRequired().HasMaxLength(1000);
             builder.Property(c => c.ExampleSentence).HasMaxLength(2000);
+
+            builder.HasMany(c => c.Choices)
+                   .WithOne(choice => choice.Card!)
+                   .HasForeignKey(choice => choice.CardId)
+                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CardChoice>(builder =>
+        {
+            builder.HasKey(choice => choice.Id);
+            builder.Property(choice => choice.Text).IsRequired().HasMaxLength(1000);
+            builder.HasIndex(choice => new { choice.CardId, choice.Order });
         });
 
         modelBuilder.Entity<User>(builder => {

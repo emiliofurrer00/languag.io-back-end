@@ -45,17 +45,9 @@ public class DeckService : IDeckService
             UpdatedAtUtc = now
         };
 
-        Card[] cards = command.Cards.Select(c => new Card
-        {
-            Id = Guid.NewGuid(),
-            DeckId = newDeck.Id,
-            FrontText = c.FrontText,
-            BackText = c.BackText,
-            ExampleSentence = c.ExampleSentence,
-            Order = c.Order,
-            CreatedAtUtc = now,
-            UpdatedAtUtc = now
-        }).ToArray();
+        Card[] cards = command.Cards
+            .Select(c => CreateCard(c, newDeck.Id, now))
+            .ToArray();
 
         newDeck.Cards = cards.ToList();
 
@@ -111,22 +103,14 @@ public class DeckService : IDeckService
                 existingCard.FrontText = dto.FrontText;
                 existingCard.BackText = dto.BackText;
                 existingCard.ExampleSentence = dto.ExampleSentence;
+                existingCard.Type = CardTypes.Normalize(dto.Type);
                 existingCard.Order = dto.Order;
                 existingCard.UpdatedAtUtc = now;
+                SyncChoices(existingCard, dto.Choices);
                 continue;
             }
 
-            await _deckRepository.AddCardAsync(new Card
-            {
-                Id = Guid.NewGuid(),
-                DeckId = deck.Id,
-                FrontText = dto.FrontText,
-                BackText = dto.BackText,
-                Order = dto.Order,
-                ExampleSentence = dto.ExampleSentence,
-                CreatedAtUtc = now,
-                UpdatedAtUtc = now
-            }, ct);
+            await _deckRepository.AddCardAsync(CreateCard(dto, deck.Id, now), ct);
         }
 
         var removedCards = deck.Cards
@@ -137,6 +121,75 @@ public class DeckService : IDeckService
 
         await _deckRepository.SaveChangesAsync(ct);
         return true;
+    }
+
+    private static Card CreateCard(Card source, Guid deckId, DateTime now)
+    {
+        var id = Guid.NewGuid();
+        return new Card
+        {
+            Id = id,
+            DeckId = deckId,
+            Type = CardTypes.Normalize(source.Type),
+            FrontText = source.FrontText,
+            BackText = source.BackText,
+            ExampleSentence = source.ExampleSentence,
+            Order = source.Order,
+            Choices = (source.Choices ?? [])
+                .OrderBy(choice => choice.Order)
+                .Select(choice => CreateChoice(choice, id))
+                .ToList(),
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+    }
+
+    private static CardChoice CreateChoice(CardChoice source, Guid cardId)
+    {
+        return new CardChoice
+        {
+            Id = Guid.NewGuid(),
+            CardId = cardId,
+            Text = source.Text,
+            IsCorrect = source.IsCorrect,
+            Order = source.Order
+        };
+    }
+
+    private void SyncChoices(Card card, IReadOnlyCollection<CardChoice>? requestedChoices)
+    {
+        var existingChoicesById = card.Choices.ToDictionary(choice => choice.Id);
+        var retainedChoiceIds = new HashSet<Guid>();
+
+        foreach (var requestedChoice in (requestedChoices ?? []).OrderBy(choice => choice.Order))
+        {
+            if (requestedChoice.Id != Guid.Empty &&
+                existingChoicesById.TryGetValue(requestedChoice.Id, out var existingChoice))
+            {
+                if (!retainedChoiceIds.Add(existingChoice.Id))
+                {
+                    continue;
+                }
+
+                existingChoice.Text = requestedChoice.Text;
+                existingChoice.IsCorrect = requestedChoice.IsCorrect;
+                existingChoice.Order = requestedChoice.Order;
+                continue;
+            }
+
+            card.Choices.Add(CreateChoice(requestedChoice, card.Id));
+        }
+
+        var removedChoices = card.Choices
+            .Where(choice => existingChoicesById.ContainsKey(choice.Id) && !retainedChoiceIds.Contains(choice.Id))
+            .ToArray();
+
+        foreach (var removedChoice in removedChoices)
+        {
+            card.Choices.Remove(removedChoice);
+        }
+
+        _deckRepository.RemoveCardChoices(removedChoices);
     }
 
     private static ActivityLog CreateActivityLog(

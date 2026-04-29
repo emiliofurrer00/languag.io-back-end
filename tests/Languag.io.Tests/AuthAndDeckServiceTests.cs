@@ -50,10 +50,16 @@ public class AuthAndDeckServiceTests
                 [
                     new Card
                     {
+                        Type = CardTypes.MultiChoice,
                         FrontText = "hola",
                         BackText = "hello",
                         ExampleSentence = "Hola, que tal?",
-                        Order = 3
+                        Order = 3,
+                        Choices =
+                        [
+                            new CardChoice { Text = "hello", IsCorrect = true, Order = 0 },
+                            new CardChoice { Text = "goodbye", IsCorrect = false, Order = 1 }
+                        ]
                     }
                 ]),
             ownerId);
@@ -64,6 +70,22 @@ public class AuthAndDeckServiceTests
         Assert.Equal("Hola, que tal?", repository.AddedDeck.Cards[0].ExampleSentence);
         Assert.Equal(3, repository.AddedDeck.Cards[0].Order);
         Assert.Equal(repository.AddedDeck.Id, repository.AddedDeck.Cards[0].DeckId);
+        Assert.Equal(CardTypes.MultiChoice, repository.AddedDeck.Cards[0].Type);
+        Assert.Collection(
+            repository.AddedDeck.Cards[0].Choices,
+            choice =>
+            {
+                Assert.NotEqual(Guid.Empty, choice.Id);
+                Assert.Equal(repository.AddedDeck.Cards[0].Id, choice.CardId);
+                Assert.Equal("hello", choice.Text);
+                Assert.True(choice.IsCorrect);
+            },
+            choice =>
+            {
+                Assert.Equal(repository.AddedDeck.Cards[0].Id, choice.CardId);
+                Assert.Equal("goodbye", choice.Text);
+                Assert.False(choice.IsCorrect);
+            });
         Assert.Collection(
             activityLogRepository.AddedLogs,
             activity =>
@@ -115,6 +137,8 @@ public class AuthAndDeckServiceTests
         var deckId = Guid.NewGuid();
         var retainedCardId = Guid.NewGuid();
         var removedCardId = Guid.NewGuid();
+        var retainedChoiceId = Guid.NewGuid();
+        var removedChoiceId = Guid.NewGuid();
         var originalCreatedAt = DateTime.UtcNow.AddDays(-7);
         var repository = new CapturingDeckRepository
         {
@@ -135,10 +159,30 @@ public class AuthAndDeckServiceTests
                     {
                         Id = retainedCardId,
                         DeckId = deckId,
+                        Type = CardTypes.MultiChoice,
                         FrontText = "hola",
                         BackText = "hello",
                         ExampleSentence = "Hola.",
                         Order = 0,
+                        Choices =
+                        [
+                            new CardChoice
+                            {
+                                Id = retainedChoiceId,
+                                CardId = retainedCardId,
+                                Text = "hello",
+                                IsCorrect = true,
+                                Order = 0
+                            },
+                            new CardChoice
+                            {
+                                Id = removedChoiceId,
+                                CardId = retainedCardId,
+                                Text = "goodbye",
+                                IsCorrect = false,
+                                Order = 1
+                            }
+                        ],
                         CreatedAtUtc = originalCreatedAt,
                         UpdatedAtUtc = originalCreatedAt
                     },
@@ -169,10 +213,27 @@ public class AuthAndDeckServiceTests
                     new Card
                     {
                         Id = retainedCardId,
+                        Type = CardTypes.MultiChoice,
                         FrontText = "hola!",
                         BackText = "hello!",
                         ExampleSentence = "Hola a todos.",
-                        Order = 2
+                        Order = 2,
+                        Choices =
+                        [
+                            new CardChoice
+                            {
+                                Id = retainedChoiceId,
+                                Text = "hello!",
+                                IsCorrect = true,
+                                Order = 0
+                            },
+                            new CardChoice
+                            {
+                                Text = "thanks",
+                                IsCorrect = false,
+                                Order = 1
+                            }
+                        ]
                     },
                     new Card
                     {
@@ -190,8 +251,24 @@ public class AuthAndDeckServiceTests
         Assert.Equal("hola!", updatedCard.FrontText);
         Assert.Equal("hello!", updatedCard.BackText);
         Assert.Equal("Hola a todos.", updatedCard.ExampleSentence);
+        Assert.Equal(CardTypes.MultiChoice, updatedCard.Type);
         Assert.Equal(2, updatedCard.Order);
         Assert.Equal(originalCreatedAt, updatedCard.CreatedAtUtc);
+        Assert.Collection(
+            updatedCard.Choices.OrderBy(choice => choice.Order),
+            choice =>
+            {
+                Assert.Equal(retainedChoiceId, choice.Id);
+                Assert.Equal("hello!", choice.Text);
+                Assert.True(choice.IsCorrect);
+            },
+            choice =>
+            {
+                Assert.NotEqual(Guid.Empty, choice.Id);
+                Assert.Equal("thanks", choice.Text);
+                Assert.False(choice.IsCorrect);
+            });
+        Assert.Equal(removedChoiceId, Assert.Single(repository.RemovedChoices).Id);
 
         var removedCard = Assert.Single(repository.RemovedCards);
         Assert.Equal(removedCardId, removedCard.Id);
@@ -380,6 +457,7 @@ public class AuthAndDeckServiceTests
         public Deck? DeckForUpdate { get; init; }
         public List<Card> AddedCards { get; } = [];
         public List<Card> RemovedCards { get; } = [];
+        public List<CardChoice> RemovedChoices { get; } = [];
         public bool SaveChangesCalled { get; private set; }
         public bool UserHasDecksResult { get; init; }
 
@@ -428,6 +506,11 @@ public class AuthAndDeckServiceTests
         public void RemoveCards(IEnumerable<Card> cards)
         {
             RemovedCards.AddRange(cards);
+        }
+
+        public void RemoveCardChoices(IEnumerable<CardChoice> choices)
+        {
+            RemovedChoices.AddRange(choices);
         }
 
         public Task DeleteCardsByDeckIdAsync(Guid deckId, CancellationToken ct = default)

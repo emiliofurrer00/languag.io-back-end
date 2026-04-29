@@ -90,6 +90,13 @@ namespace Languag.io.Infrastructure.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasDefaultValue("flashcard");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -98,6 +105,33 @@ namespace Languag.io.Infrastructure.Migrations
                     b.HasIndex("DeckId");
 
                     b.ToTable("Cards");
+                });
+
+            modelBuilder.Entity("Languag.io.Domain.Entities.CardChoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId", "Order");
+
+                    b.ToTable("CardChoices");
                 });
 
             modelBuilder.Entity("Languag.io.Domain.Entities.CardReviewState", b =>
@@ -496,6 +530,17 @@ namespace Languag.io.Infrastructure.Migrations
                     b.Navigation("Deck");
                 });
 
+            modelBuilder.Entity("Languag.io.Domain.Entities.CardChoice", b =>
+                {
+                    b.HasOne("Languag.io.Domain.Entities.Card", "Card")
+                        .WithMany("Choices")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+                });
+
             modelBuilder.Entity("Languag.io.Domain.Entities.CardReviewState", b =>
                 {
                     b.HasOne("Languag.io.Domain.Entities.Card", "Card")
@@ -652,6 +697,7 @@ namespace Languag.io.Infrastructure.Migrations
 
             modelBuilder.Entity("Languag.io.Domain.Entities.Card", b =>
                 {
+                    b.Navigation("Choices");
 
                     b.Navigation("ReviewStates");
 

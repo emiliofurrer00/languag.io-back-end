@@ -63,6 +63,60 @@ public sealed class DeckRepositoryTests
             deck => Assert.Equal(publicMatchingDeck.Id, deck.Id));
     }
 
+    [Fact]
+    public async Task GetDeckByIdAsync_ReturnsMultiChoiceCardChoices()
+    {
+        await using var context = await CreateContextAsync();
+        var repository = new DeckRepository(context);
+        var owner = CreateUser("choice-maker");
+        var deck = CreateDeck(owner, "Question Deck", DeckVisibility.Public, updatedMinutesAgo: 1);
+        var card = deck.Cards[0];
+        card.Type = CardTypes.MultiChoice;
+        card.Choices =
+        [
+            new CardChoice
+            {
+                Id = Guid.NewGuid(),
+                CardId = card.Id,
+                Text = "hello",
+                IsCorrect = true,
+                Order = 0
+            },
+            new CardChoice
+            {
+                Id = Guid.NewGuid(),
+                CardId = card.Id,
+                Text = "goodbye",
+                IsCorrect = false,
+                Order = 1
+            }
+        ];
+
+        context.Users.Add(owner);
+        context.Decks.Add(deck);
+        await context.SaveChangesAsync();
+
+        var dto = await repository.GetDeckByIdAsync(deck.Id, owner.Id);
+
+        Assert.NotNull(dto);
+        var returnedCard = Assert.Single(dto.Cards);
+        Assert.Equal(CardTypes.MultiChoice, returnedCard.Type);
+        Assert.Equal("hola", returnedCard.FrontText);
+        Assert.Equal("hello", returnedCard.BackText);
+        Assert.Collection(
+            returnedCard.Choices,
+            choice =>
+            {
+                Assert.Equal("hello", choice.Text);
+                Assert.True(choice.IsCorrect);
+            },
+            choice =>
+            {
+                Assert.Equal("goodbye", choice.Text);
+                Assert.False(choice.IsCorrect);
+            });
+    }
+
     private static async Task<AppDbContext> CreateContextAsync()
     {
         var connection = new SqliteConnection("Data Source=:memory:");

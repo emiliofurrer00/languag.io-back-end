@@ -89,9 +89,14 @@ public sealed class StudySessionRepository : IStudySessionRepository
             .Select(card => new StudyPlanCard(
                 card.Id,
                 card.DeckId,
+                card.Type,
                 card.FrontText,
                 card.BackText,
                 card.ExampleSentence,
+                card.Choices
+                    .OrderBy(choice => choice.Order)
+                    .Select(choice => new CardChoiceDto(choice.Id, choice.Text, choice.IsCorrect, choice.Order))
+                    .ToList(),
                 card.Order))
             .ToListAsync(ct);
 
@@ -166,9 +171,11 @@ public sealed class StudySessionRepository : IStudySessionRepository
         return new StudyPlanCardDto(
             card.Id,
             card.DeckId,
+            card.Type,
             card.FrontText,
             card.BackText,
             card.ExampleSentence,
+            card.Choices,
             card.Order,
             isNew,
             isDue,
@@ -311,9 +318,11 @@ public sealed class StudySessionRepository : IStudySessionRepository
     private sealed record StudyPlanCard(
         Guid Id,
         Guid DeckId,
+        string Type,
         string FrontText,
         string BackText,
         string? ExampleSentence,
+        List<CardChoiceDto> Choices,
         int Order);
 
     private static class StudyPlanReasons

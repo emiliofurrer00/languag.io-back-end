@@ -14,6 +14,7 @@ public interface IDeckRepository
     Task<DeckDto?> GetDeckByIdAsync(Guid deckId, Guid? ownerId, CancellationToken ct = default);
     Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default);
     void RemoveCards(IEnumerable<Card> cards);
+    void RemoveCardChoices(IEnumerable<CardChoice> choices);
     Task DeleteCardsByDeckIdAsync(Guid deckId, CancellationToken ct = default);
     Task AddCardAsync(Card card, CancellationToken ct = default);
     Task<bool> DeckExistsAsync(Guid deckId, CancellationToken ct = default);

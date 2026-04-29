@@ -20,9 +20,9 @@ public class DeckRepository : IDeckRepository
             .Where(d => d.Visibility == DeckVisibility.Public)
             .Include(d => d.User);
 
-        return await ApplyListFilters(decksQuery, query)
-            .OrderByDescending(d => d.UpdatedAtUtc)
-            .Select(d => MapToDeckDto(d))
+        return await ProjectToDeckDto(
+                ApplyListFilters(decksQuery, query)
+                    .OrderByDescending(d => d.UpdatedAtUtc))
             .ToListAsync(ct);
     }
 
@@ -33,9 +33,9 @@ public class DeckRepository : IDeckRepository
             .Include(d => d.User)
             .Where(d => d.OwnerId == ownerId || d.Visibility == DeckVisibility.Public);
 
-        return await ApplyListFilters(decksQuery, query)
-            .OrderByDescending(d => d.UpdatedAtUtc)
-            .Select(d => MapToDeckDto(d))
+        return await ProjectToDeckDto(
+                ApplyListFilters(decksQuery, query)
+                    .OrderByDescending(d => d.UpdatedAtUtc))
             .ToListAsync(ct);
     }
 
@@ -66,24 +66,13 @@ public class DeckRepository : IDeckRepository
 
     public async Task<DeckDto?> GetDeckByIdAsync(Guid deckId, Guid? ownerId, CancellationToken ct = default)
     {
-        return await _dbContext.Decks
+        var deckQuery = _dbContext.Decks
             .AsNoTracking()
             .Include(d => d.User)
             .Where(d => d.Id == deckId)
-            .Where(d => d.Visibility == DeckVisibility.Public || (ownerId.HasValue && d.OwnerId == ownerId.Value))
-            .Select(d => new DeckDto(
-                d.Id,
-                d.Title,
-                d.Category ?? string.Empty,
-                d.Description,
-                d.Visibility,
-                d.Color,
-                d.Cards
-                    .OrderBy(c => c.Order)
-                    .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
-                    .ToList(),
-                d.User != null ? d.User.Username ?? "" : ""
-             ))
+            .Where(d => d.Visibility == DeckVisibility.Public || (ownerId.HasValue && d.OwnerId == ownerId.Value));
+
+        return await ProjectToDeckDto(deckQuery)
             .FirstOrDefaultAsync();
     }
 
@@ -91,12 +80,18 @@ public class DeckRepository : IDeckRepository
     {
         return await _dbContext.Decks
             .Include(d => d.Cards)
+                .ThenInclude(c => c.Choices)
             .FirstOrDefaultAsync(d => d.Id == deckId && d.OwnerId == ownerId, ct);
     }
 
     public void RemoveCards(IEnumerable<Card> cards)
     {
         _dbContext.Cards.RemoveRange(cards);
+    }
+
+    public void RemoveCardChoices(IEnumerable<CardChoice> choices)
+    {
+        _dbContext.CardChoices.RemoveRange(choices);
     }
 
     public Task DeleteCardsByDeckIdAsync(Guid deckId, CancellationToken ct)
@@ -139,9 +134,9 @@ public class DeckRepository : IDeckRepository
         return query;
     }
 
-    private static DeckDto MapToDeckDto(Deck deck)
+    private static IQueryable<DeckDto> ProjectToDeckDto(IQueryable<Deck> query)
     {
-        return new DeckDto(
+        return query.Select(deck => new DeckDto(
             deck.Id,
             deck.Title,
             deck.Category ?? string.Empty,
@@ -150,9 +145,19 @@ public class DeckRepository : IDeckRepository
             deck.Color,
             deck.Cards
                 .OrderBy(c => c.Order)
-                .Select(c => new CardDto(c.Id, c.FrontText, c.BackText, c.Order))
+                .Select(c => new CardDto(
+                    c.Id,
+                    c.Type,
+                    c.FrontText,
+                    c.BackText,
+                    c.ExampleSentence,
+                    c.Choices
+                        .OrderBy(choice => choice.Order)
+                        .Select(choice => new CardChoiceDto(choice.Id, choice.Text, choice.IsCorrect, choice.Order))
+                        .ToList(),
+                    c.Order))
                 .ToList(),
             deck.User != null ? deck.User.Username ?? "" : ""
-        );
+        ));
     }
 }
