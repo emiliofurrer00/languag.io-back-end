@@ -50,6 +50,27 @@ public class DecksController : ControllerBase
         return Ok(decks);
     }
 
+    // GET: api/decks/study-recommendations
+    [Authorize]
+    [HttpGet("study-recommendations")]
+    public async Task<IActionResult> GetStudyRecommendations(
+        [FromQuery] int limit,
+        CancellationToken ct)
+    {
+        var userId = await GetCurrentUserIdAsync(ct);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var recommendations = await _studySessionService.GetStudyRecommendationsAsync(
+            userId.Value,
+            limit <= 0 ? 10 : limit,
+            ct);
+
+        return Ok(recommendations);
+    }
+
     // POST: api/decks
     [Authorize]
     [HttpPost]
@@ -138,6 +159,34 @@ public class DecksController : ControllerBase
             SubmitStudySessionStatus.Invalid => BadRequest(new { message = result.Error }),
             _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
+    }
+
+    // GET: api/decks/{id}/study-plan
+    [Authorize]
+    [HttpGet("{id:guid}/study-plan")]
+    public async Task<IActionResult> GetDeckStudyPlan(
+        [FromRoute] Guid id,
+        [FromQuery] int limit,
+        CancellationToken ct)
+    {
+        var userId = await GetCurrentUserIdAsync(ct);
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var studyPlan = await _studySessionService.GetDeckStudyPlanAsync(
+            id,
+            userId.Value,
+            limit <= 0 ? 20 : limit,
+            ct);
+
+        if (studyPlan is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(studyPlan);
     }
 
     // GET: api/decks/{id}

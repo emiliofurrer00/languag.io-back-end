@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<StudySession> StudySessions => Set<StudySession>();
     public DbSet<StudySessionResponse> StudySessionResponses => Set<StudySessionResponse>();
+    public DbSet<CardReviewState> CardReviewStates => Set<CardReviewState>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -149,6 +150,36 @@ public class AppDbContext : DbContext
 
             builder.HasIndex(r => new { r.StudySessionId, r.CardId });
             builder.HasIndex(r => new { r.UserId, r.DeckId });
+        });
+
+        modelBuilder.Entity<CardReviewState>(builder =>
+        {
+            builder.HasKey(r => new { r.UserId, r.CardId });
+            builder.Property(r => r.DueAtUtc).IsRequired();
+            builder.Property(r => r.EaseFactor).HasPrecision(4, 2);
+            builder.Property(r => r.IntervalDays).IsRequired();
+            builder.Property(r => r.RepetitionCount).IsRequired();
+            builder.Property(r => r.LapseCount).IsRequired();
+            builder.Property(r => r.TotalReviews).IsRequired();
+            builder.Property(r => r.CorrectReviews).IsRequired();
+
+            builder.HasOne(r => r.User)
+                   .WithMany(u => u.CardReviewStates)
+                   .HasForeignKey(r => r.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(r => r.Deck)
+                   .WithMany(d => d.CardReviewStates)
+                   .HasForeignKey(r => r.DeckId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(r => r.Card)
+                   .WithMany(c => c.ReviewStates)
+                   .HasForeignKey(r => r.CardId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(r => new { r.UserId, r.DeckId, r.DueAtUtc });
+            builder.HasIndex(r => new { r.UserId, r.DueAtUtc });
         });
     }
 }

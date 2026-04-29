@@ -20,6 +20,7 @@ public class User
     public List<ActivityLog> ActivityLogs { get; set; } = new List<ActivityLog>();
     public List<StudySession> StudySessions { get; set; } = new List<StudySession>();
     public List<StudySessionResponse> StudySessionResponses { get; set; } = new List<StudySessionResponse>();
+    public List<CardReviewState> CardReviewStates { get; set; } = new List<CardReviewState>();
     public List<FriendRequest> SentFriendRequests { get; set; } = new List<FriendRequest>();
     public List<FriendRequest> ReceivedFriendRequests { get; set; } = new List<FriendRequest>();
     public List<Friendship> FriendshipsAsUser1 { get; set; } = new List<Friendship>();

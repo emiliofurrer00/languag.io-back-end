@@ -102,11 +102,123 @@ public sealed class StudySessionService : IStudySessionService
                 ct);
         }
 
+        await UpdateReviewStatesAsync(command, userId, now, ct);
         await _studySessionRepository.SaveChangesAsync(ct);
 
         return new SubmitStudySessionResult(
             SubmitStudySessionStatus.Created,
             StudySessionId: studySession.Id);
+    }
+
+    public async Task<IReadOnlyList<StudyPlanCardDto>?> GetDeckStudyPlanAsync(
+        Guid deckId,
+        Guid userId,
+        int limit,
+        CancellationToken ct = default)
+    {
+        if (!await _studySessionRepository.CanAccessDeckAsync(deckId, userId, ct))
+        {
+            return null;
+        }
+
+        return await _studySessionRepository.GetDeckStudyPlanAsync(
+            deckId,
+            userId,
+            DateTime.UtcNow,
+            NormalizeLimit(limit),
+            ct);
+    }
+
+    public Task<IReadOnlyList<DeckStudyRecommendationDto>> GetStudyRecommendationsAsync(
+        Guid userId,
+        int limit,
+        CancellationToken ct = default)
+    {
+        return _studySessionRepository.GetStudyRecommendationsAsync(
+            userId,
+            DateTime.UtcNow,
+            NormalizeLimit(limit),
+            ct);
+    }
+
+    private async Task UpdateReviewStatesAsync(
+        SubmitStudySessionCommand command,
+        Guid userId,
+        DateTime now,
+        CancellationToken ct)
+    {
+        var cardIds = command.Responses
+            .Select(response => response.CardId)
+            .Distinct()
+            .ToArray();
+
+        var existingStates = await _studySessionRepository.GetReviewStatesAsync(
+            userId,
+            command.DeckId,
+            cardIds,
+            ct);
+
+        var statesByCardId = existingStates.ToDictionary(state => state.CardId);
+        var newStates = new List<CardReviewState>();
+
+        foreach (var response in command.Responses)
+        {
+            if (!statesByCardId.TryGetValue(response.CardId, out var state))
+            {
+                state = new CardReviewState
+                {
+                    UserId = userId,
+                    DeckId = command.DeckId,
+                    CardId = response.CardId,
+                    DueAtUtc = now,
+                    EaseFactor = 2.5m
+                };
+                statesByCardId.Add(response.CardId, state);
+                newStates.Add(state);
+            }
+
+            ApplyReviewResult(state, response.WasCorrect, now);
+        }
+
+        if (newStates.Count > 0)
+        {
+            await _studySessionRepository.AddReviewStatesAsync(newStates, ct);
+        }
+    }
+
+    private static void ApplyReviewResult(CardReviewState state, bool wasCorrect, DateTime now)
+    {
+        if (!wasCorrect)
+        {
+            state.RepetitionCount = 0;
+            state.LapseCount++;
+            state.IntervalDays = 1;
+            state.EaseFactor = Math.Max(1.3m, state.EaseFactor - 0.2m);
+        }
+        else
+        {
+            state.RepetitionCount++;
+            state.IntervalDays = state.RepetitionCount switch
+            {
+                1 => 1,
+                2 => 3,
+                _ => Math.Max(1, (int)Math.Round(state.IntervalDays * state.EaseFactor))
+            };
+            state.EaseFactor = Math.Min(3.0m, state.EaseFactor + 0.05m);
+        }
+
+        state.LastReviewedAtUtc = now;
+        state.DueAtUtc = now.AddDays(state.IntervalDays);
+        state.TotalReviews++;
+        if (wasCorrect)
+        {
+            state.CorrectReviews++;
+        }
+    }
+
+    private static int NormalizeLimit(int limit)
+    {
+        return Math.Clamp(limit, 1, 100);
     }
 
     private static ActivityLog CreateActivityLog(

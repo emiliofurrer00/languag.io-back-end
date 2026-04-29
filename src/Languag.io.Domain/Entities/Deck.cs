@@ -29,6 +29,7 @@ namespace Languag.io.Domain.Entities
         public List<ActivityLog> ActivityLogs { get; set; } = [];
         public List<StudySession> StudySessions { get; set; } = [];
         public List<StudySessionResponse> StudySessionResponses { get; set; } = [];
+        public List<CardReviewState> CardReviewStates { get; set; } = [];
     }
 
     public enum DeckVisibility

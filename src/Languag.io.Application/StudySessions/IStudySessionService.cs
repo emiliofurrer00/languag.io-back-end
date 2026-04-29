@@ -6,4 +6,15 @@ public interface IStudySessionService
         SubmitStudySessionCommand command,
         Guid userId,
         CancellationToken ct = default);
+
+    Task<IReadOnlyList<StudyPlanCardDto>?> GetDeckStudyPlanAsync(
+        Guid deckId,
+        Guid userId,
+        int limit,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<DeckStudyRecommendationDto>> GetStudyRecommendationsAsync(
+        Guid userId,
+        int limit,
+        CancellationToken ct = default);
 }

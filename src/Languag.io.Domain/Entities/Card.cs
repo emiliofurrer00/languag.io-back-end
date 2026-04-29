@@ -23,6 +23,7 @@ namespace Languag.io.Domain.Entities
 
         public Deck? Deck { get; set; }
         public List<StudySessionResponse> StudySessionResponses { get; set; } = [];
+        public List<CardReviewState> ReviewStates { get; set; } = [];
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
     }
