@@ -34,6 +34,9 @@ public sealed class DeckRepositoryTests
         var deck = Assert.Single(decks);
         Assert.Equal(matchingPublicDeck.Id, deck.Id);
         Assert.Equal("ada", deck.OwnerName);
+        Assert.Equal("ada", deck.OwnerUsername);
+        Assert.False(deck.IsOwner);
+        Assert.False(deck.CanEdit);
     }
 
     [Fact]
@@ -59,8 +62,20 @@ public sealed class DeckRepositoryTests
 
         Assert.Collection(
             decks,
-            deck => Assert.Equal(ownedPrivateDeck.Id, deck.Id),
-            deck => Assert.Equal(publicMatchingDeck.Id, deck.Id));
+            deck =>
+            {
+                Assert.Equal(ownedPrivateDeck.Id, deck.Id);
+                Assert.Equal("current", deck.OwnerUsername);
+                Assert.True(deck.IsOwner);
+                Assert.True(deck.CanEdit);
+            },
+            deck =>
+            {
+                Assert.Equal(publicMatchingDeck.Id, deck.Id);
+                Assert.Equal("other", deck.OwnerUsername);
+                Assert.False(deck.IsOwner);
+                Assert.False(deck.CanEdit);
+            });
     }
 
     [Fact]
@@ -99,6 +114,9 @@ public sealed class DeckRepositoryTests
         var dto = await repository.GetDeckByIdAsync(deck.Id, owner.Id);
 
         Assert.NotNull(dto);
+        Assert.True(dto.IsOwner);
+        Assert.True(dto.CanEdit);
+        Assert.Equal("choice-maker", dto.OwnerUsername);
         var returnedCard = Assert.Single(dto.Cards);
         Assert.Equal(CardTypes.MultiChoice, returnedCard.Type);
         Assert.Equal("hola", returnedCard.FrontText);
