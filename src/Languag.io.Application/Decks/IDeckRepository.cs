@@ -12,7 +12,7 @@ public interface IDeckRepository
     Task AddAsync(Deck deck, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
     Task<DeckDto?> GetDeckByIdAsync(Guid deckId, Guid? ownerId, CancellationToken ct = default);
-    Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default);
+    Task<Deck?> GetOwnedDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default);
     void RemoveCards(IEnumerable<Card> cards);
     void RemoveCardChoices(IEnumerable<CardChoice> choices);
     Task DeleteCardsByDeckIdAsync(Guid deckId, CancellationToken ct = default);

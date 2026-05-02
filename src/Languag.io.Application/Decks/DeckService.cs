@@ -75,7 +75,7 @@ public class DeckService : IDeckService
 
     public async Task<bool> UpdateDeckAsync(UpdateDeckCommand command, Guid ownerId, CancellationToken ct = default)
     {
-        var deck = await _deckRepository.GetDeckByIdForUpdateAsync(command.Id, ownerId, ct);
+        var deck = await _deckRepository.GetOwnedDeckByIdForUpdateAsync(command.Id, ownerId, ct);
         if (deck is null) return false;
 
         var now = DateTime.UtcNow;

@@ -76,7 +76,7 @@ public class DeckRepository : IDeckRepository
             .FirstOrDefaultAsync();
     }
 
-    public async Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default)
+    public async Task<Deck?> GetOwnedDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default)
     {
         return await _dbContext.Decks
             .Include(d => d.Cards)
