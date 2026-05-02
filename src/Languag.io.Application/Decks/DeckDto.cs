@@ -9,5 +9,8 @@ public record DeckDto(
     DeckVisibility Visibility,
     string? Color,
     List<CardDto> Cards,
-    string? OwnerName
+    string? OwnerName,
+    string? OwnerUsername,
+    bool IsOwner,
+    bool CanEdit
 );

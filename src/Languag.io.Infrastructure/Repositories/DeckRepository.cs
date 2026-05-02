@@ -35,7 +35,8 @@ public class DeckRepository : IDeckRepository
 
         return await ProjectToDeckDto(
                 ApplyListFilters(decksQuery, query)
-                    .OrderByDescending(d => d.UpdatedAtUtc))
+                    .OrderByDescending(d => d.UpdatedAtUtc),
+                ownerId)
             .ToListAsync(ct);
     }
 
@@ -72,7 +73,7 @@ public class DeckRepository : IDeckRepository
             .Where(d => d.Id == deckId)
             .Where(d => d.Visibility == DeckVisibility.Public || (ownerId.HasValue && d.OwnerId == ownerId.Value));
 
-        return await ProjectToDeckDto(deckQuery)
+        return await ProjectToDeckDto(deckQuery, ownerId)
             .FirstOrDefaultAsync();
     }
 
@@ -134,7 +135,7 @@ public class DeckRepository : IDeckRepository
         return query;
     }
 
-    private static IQueryable<DeckDto> ProjectToDeckDto(IQueryable<Deck> query)
+    private static IQueryable<DeckDto> ProjectToDeckDto(IQueryable<Deck> query, Guid? currentUserId = null)
     {
         return query.Select(deck => new DeckDto(
             deck.Id,
@@ -157,7 +158,10 @@ public class DeckRepository : IDeckRepository
                         .ToList(),
                     c.Order))
                 .ToList(),
-            deck.User != null ? deck.User.Username ?? "" : ""
+            deck.User != null ? deck.User.Username ?? "" : "",
+            deck.User != null ? deck.User.Username ?? "" : "",
+            currentUserId.HasValue && deck.OwnerId == currentUserId.Value,
+            currentUserId.HasValue && deck.OwnerId == currentUserId.Value
         ));
     }
 }
