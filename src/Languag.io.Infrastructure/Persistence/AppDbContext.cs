@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<AiDeckGenerationJob> AiDeckGenerationJobs => Set<AiDeckGenerationJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -194,6 +195,33 @@ public class AppDbContext : DbContext
 
             builder.HasIndex(r => new { r.UserId, r.DeckId, r.DueAtUtc });
             builder.HasIndex(r => new { r.UserId, r.DueAtUtc });
+        });
+
+        modelBuilder.Entity<AiDeckGenerationJob>(builder =>
+        {
+            builder.HasKey(job => job.Id);
+            builder.Property(job => job.Prompt).IsRequired().HasMaxLength(1000);
+            builder.Property(job => job.TargetLanguage).HasMaxLength(80);
+            builder.Property(job => job.NativeLanguage).HasMaxLength(80);
+            builder.Property(job => job.Difficulty).IsRequired().HasMaxLength(40);
+            builder.Property(job => job.ErrorMessage).HasMaxLength(2000);
+            builder.Property(job => job.Status).IsRequired();
+            builder.Property(job => job.CreatedAtUtc).IsRequired();
+            builder.Property(job => job.RetryCount).HasDefaultValue(0);
+
+            builder.HasOne(job => job.User)
+                   .WithMany(user => user.AiDeckGenerationJobs)
+                   .HasForeignKey(job => job.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(job => job.CreatedDeck)
+                   .WithMany()
+                   .HasForeignKey(job => job.CreatedDeckId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasIndex(job => new { job.Status, job.CreatedAtUtc });
+            builder.HasIndex(job => new { job.UserId, job.CreatedAtUtc });
         });
     }
 }
