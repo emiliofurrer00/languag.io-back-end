@@ -1,3 +1,4 @@
+using Languag.io.Application.AiDeckGeneration;
 using Languag.io.Application.Decks;
 using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
@@ -12,6 +13,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddScoped<IAiDeckGenerationService, AiDeckGenerationService>();
         services.AddScoped<IDeckService, DeckService>();
         services.AddScoped<IFeedService, FeedService>();
         services.AddScoped<IFriendService, FriendService>();
