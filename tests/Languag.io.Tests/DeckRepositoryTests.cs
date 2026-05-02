@@ -117,6 +117,23 @@ public sealed class DeckRepositoryTests
             });
     }
 
+    [Fact]
+    public async Task GetOwnedDeckByIdForUpdateAsync_ReturnsNullForDecksOwnedByAnotherUser()
+    {
+        await using var context = await CreateContextAsync();
+        var repository = new DeckRepository(context);
+        var currentUser = CreateUser("current");
+        var otherUser = CreateUser("other");
+        var otherUsersPublicDeck = CreateDeck(otherUser, "Public but not editable", DeckVisibility.Public, updatedMinutesAgo: 1);
+        context.Users.AddRange(currentUser, otherUser);
+        context.Decks.Add(otherUsersPublicDeck);
+        await context.SaveChangesAsync();
+
+        var deck = await repository.GetOwnedDeckByIdForUpdateAsync(otherUsersPublicDeck.Id, currentUser.Id);
+
+        Assert.Null(deck);
+    }
+
     private static async Task<AppDbContext> CreateContextAsync()
     {
         var connection = new SqliteConnection("Data Source=:memory:");

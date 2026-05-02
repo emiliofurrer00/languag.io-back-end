@@ -283,6 +283,63 @@ public class AuthAndDeckServiceTests
     }
 
     [Fact]
+    public async Task UpdateDeckAsync_ReturnsFalseAndDoesNotSave_WhenUserDoesNotOwnDeck()
+    {
+        var ownerId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        var deckId = Guid.NewGuid();
+        var repository = new CapturingDeckRepository
+        {
+            DeckForUpdate = new Deck
+            {
+                Id = deckId,
+                OwnerId = otherUserId,
+                Title = "Someone else's deck",
+                Category = "Language",
+                Color = "teal",
+                Visibility = DeckVisibility.Public,
+                Cards =
+                [
+                    new Card
+                    {
+                        Id = Guid.NewGuid(),
+                        DeckId = deckId,
+                        FrontText = "hola",
+                        BackText = "hello",
+                        Order = 0
+                    }
+                ]
+            }
+        };
+        var service = new DeckService(repository, new CapturingActivityLogRepository());
+
+        var result = await service.UpdateDeckAsync(
+            new UpdateDeckCommand(
+                deckId,
+                "Hijacked title",
+                "Nope",
+                "Language",
+                "blue",
+                DeckVisibility.Private,
+                [
+                    new Card
+                    {
+                        FrontText = "ciao",
+                        BackText = "bye",
+                        Order = 0
+                    }
+                ]),
+            ownerId);
+
+        Assert.False(result);
+        Assert.False(repository.SaveChangesCalled);
+        Assert.Empty(repository.AddedCards);
+        Assert.Empty(repository.RemovedCards);
+        Assert.Equal("Someone else's deck", repository.DeckForUpdate.Title);
+        Assert.Equal(DeckVisibility.Public, repository.DeckForUpdate.Visibility);
+    }
+
+    [Fact]
     public void WebhookEnvelope_MapsKindeDocumentedUserPayloadShape()
     {
         const string json = """
@@ -493,7 +550,7 @@ public class AuthAndDeckServiceTests
             throw new NotImplementedException();
         }
 
-        public Task<Deck?> GetDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default)
+        public Task<Deck?> GetOwnedDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default)
         {
             return Task.FromResult(
                 DeckForUpdate is not null &&
