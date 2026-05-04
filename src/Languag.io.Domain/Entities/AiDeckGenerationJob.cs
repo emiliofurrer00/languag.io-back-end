@@ -26,7 +26,14 @@ public class AiDeckGenerationJob
     [Range(5, 20)]
     public int RequestedCardCount { get; set; }
 
+    [Range(0, 20)]
+    public int RequestedMultiChoiceCount { get; set; }
+
+    public bool IncludeAudio { get; set; }
+
     public AiDeckGenerationStatus Status { get; set; } = AiDeckGenerationStatus.Pending;
+
+    public AiDeckAudioStatus AudioStatus { get; set; } = AiDeckAudioStatus.NotRequested;
 
     public Guid? CreatedDeckId { get; set; }
     public Deck? CreatedDeck { get; set; }
@@ -47,4 +54,13 @@ public enum AiDeckGenerationStatus
     Processing = 2,
     Completed = 3,
     Failed = 4
+}
+
+public enum AiDeckAudioStatus
+{
+    NotRequested = 1,
+    Pending = 2,
+    Processing = 3,
+    Ready = 4,
+    Failed = 5
 }

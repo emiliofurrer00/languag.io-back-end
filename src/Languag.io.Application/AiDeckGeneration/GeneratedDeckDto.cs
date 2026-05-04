@@ -10,7 +10,16 @@ public class GeneratedDeckDto
 
 public class GeneratedCardDto
 {
+    public string Type { get; set; } = Languag.io.Domain.Entities.CardTypes.Flashcard;
     public string FrontText { get; set; } = string.Empty;
     public string BackText { get; set; } = string.Empty;
+    public string? TtsText { get; set; }
     public string? ExampleSentence { get; set; }
+    public List<GeneratedCardChoiceDto> Choices { get; set; } = [];
+}
+
+public class GeneratedCardChoiceDto
+{
+    public string Text { get; set; } = string.Empty;
+    public bool IsCorrect { get; set; }
 }

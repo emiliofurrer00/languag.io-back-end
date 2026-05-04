@@ -97,6 +97,24 @@ dotnet user-secrets set "ProfileImages:BucketName" "languagio-profile-images-dev
 dotnet user-secrets set "ProfileImages:CloudFrontBaseUrl" "https://dxxxxxxxxxxxxx.cloudfront.net"
 ```
 
+### AI TTS Audio Settings
+
+AI-generated decks can optionally create reusable front-card MP3 audio assets. The worker reads the same OpenAI key used for deck generation and stores files in S3 or an S3-compatible service such as Cloudflare R2.
+
+| Setting | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` / `OpenAI__ApiKey` | OpenAI API key used for deck generation and TTS |
+| `OpenAI__TtsModel` | TTS model, defaults to `gpt-4o-mini-tts` |
+| `OpenAI__TtsVoice` | TTS voice, defaults to `cedar` |
+| `OpenAI__TtsSpeed` | Speech speed, defaults to `0.9` |
+| `AudioStorage__AccessKeyId` / `AWS_ACCESS_KEY_ID` | S3/R2 access key |
+| `AudioStorage__SecretAccessKey` / `AWS_SECRET_ACCESS_KEY` | S3/R2 secret key |
+| `AudioStorage__BucketName` / `AWS_S3_BUCKET` | Bucket for generated MP3 files |
+| `AudioStorage__Region` / `AWS_REGION` | Bucket region |
+| `AudioStorage__ServiceUrl` | Optional S3-compatible endpoint URL for R2 |
+| `AudioStorage__PublicBaseUrl` / `AUDIO_CDN_BASE_URL` | Public CDN/base URL for audio playback |
+| `AudioStorage__KeyPrefix` | Object prefix, defaults to `audio/tts` |
+
 ## Profile Picture Upload Flow
 
 Profile pictures are stored as private S3 objects and served publicly through CloudFront.

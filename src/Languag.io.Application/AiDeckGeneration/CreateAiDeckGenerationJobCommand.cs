@@ -5,4 +5,6 @@ public record CreateAiDeckGenerationJobCommand(
     string? TargetLanguage,
     string? NativeLanguage,
     string? Difficulty,
-    int CardCount);
+    int CardCount,
+    bool IncludeAudio,
+    int MultiChoiceCount = 0);

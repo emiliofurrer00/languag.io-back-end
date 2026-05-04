@@ -7,7 +7,10 @@ public record CardDto(
     string BackText,
     string? ExampleSentence,
     List<CardChoiceDto> Choices,
-    int Order
+    int Order,
+    Guid? FrontAudioAssetId,
+    string? FrontAudioUrl,
+    string? FrontAudioStatus
 );
 
 public record CardChoiceDto(

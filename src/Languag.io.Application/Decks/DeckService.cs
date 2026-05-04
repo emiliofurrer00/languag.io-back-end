@@ -100,6 +100,11 @@ public class DeckService : IDeckService
                     continue;
                 }
 
+                if (!string.Equals(existingCard.FrontText, dto.FrontText, StringComparison.Ordinal))
+                {
+                    existingCard.FrontAudioAssetId = null;
+                }
+
                 existingCard.FrontText = dto.FrontText;
                 existingCard.BackText = dto.BackText;
                 existingCard.ExampleSentence = dto.ExampleSentence;

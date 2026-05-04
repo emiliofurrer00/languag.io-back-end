@@ -25,7 +25,10 @@ namespace Languag.io.Domain.Entities
         [Range(0, 10000)]
         public int Order { get; set; }
 
+        public Guid? FrontAudioAssetId { get; set; }
+
         public Deck? Deck { get; set; }
+        public AudioAsset? FrontAudioAsset { get; set; }
         public List<CardChoice> Choices { get; set; } = [];
         public List<StudySessionResponse> StudySessionResponses { get; set; } = [];
         public List<CardReviewState> ReviewStates { get; set; } = [];

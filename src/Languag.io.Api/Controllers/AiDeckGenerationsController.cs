@@ -42,7 +42,9 @@ public class AiDeckGenerationsController : ControllerBase
                     request.TargetLanguage,
                     request.NativeLanguage,
                     request.Difficulty,
-                    request.CardCount),
+                    request.CardCount,
+                    request.IncludeAudio,
+                    request.MultiChoiceCount),
                 userId.Value,
                 ct);
 
