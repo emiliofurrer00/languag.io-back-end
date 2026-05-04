@@ -33,17 +33,93 @@ See [Architecture](./docs/ARCHITECTURE.md) for a deeper explanation of the layer
 
 ## Getting Started
 
-Start a local PostgreSQL instance:
+### Full Local Dev Environment
+
+Use this flow when you want the API, worker, and frontend running together.
+
+One-time setup from the backend repository root:
 
 ```powershell
-docker compose up -d
+cd C:\Users\emili\OneDrive\Escritorio\languag.io_back
+dotnet restore
 ```
 
-Run the API:
+If `dotnet ef` is not available, install it once:
 
 ```powershell
-dotnet restore
-dotnet run --project src\Languag.io.Api
+dotnet tool install --global dotnet-ef
+```
+
+Start or confirm local PostgreSQL is available on `localhost:5433`. The default local connection string is:
+
+```text
+Host=localhost;Port=5433;Database=languagio;Username=postgres;Password=postgres
+```
+
+If you need a quick local PostgreSQL container:
+
+```powershell
+docker run --name languagio-postgres -e POSTGRES_DB=languagio -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5433:5432 -d postgres:16
+```
+
+Apply migrations:
+
+```powershell
+cd C:\Users\emili\OneDrive\Escritorio\languag.io_back\src
+dotnet ef database update --project Languag.io.Infrastructure --startup-project Languag.io.Api
+```
+
+Set API user secrets:
+
+```powershell
+cd C:\Users\emili\OneDrive\Escritorio\languag.io_back\src\Languag.io.Api
+
+dotnet user-secrets set "AI_PROVIDER" "OpenAI"
+dotnet user-secrets set "OPENAI_API_KEY" "..."
+dotnet user-secrets set "AudioStorage:AccessKeyId" "..."
+dotnet user-secrets set "AudioStorage:SecretAccessKey" "..."
+dotnet user-secrets set "AudioStorage:BucketName" "..."
+dotnet user-secrets set "AudioStorage:Region" "eu-north-1"
+dotnet user-secrets set "AudioStorage:PublicBaseUrl" "https://dxxxxxxxxxxxxx.cloudfront.net"
+dotnet user-secrets set "AudioStorage:KeyPrefix" "audio/tts"
+```
+
+Set Worker user secrets too. The worker is the process that calls OpenAI and uploads MP3 files:
+
+```powershell
+cd C:\Users\emili\OneDrive\Escritorio\languag.io_back\src\Languag.io.Worker
+
+dotnet user-secrets set "AI_PROVIDER" "OpenAI"
+dotnet user-secrets set "OPENAI_API_KEY" "..."
+dotnet user-secrets set "AudioStorage:AccessKeyId" "..."
+dotnet user-secrets set "AudioStorage:SecretAccessKey" "..."
+dotnet user-secrets set "AudioStorage:BucketName" "..."
+dotnet user-secrets set "AudioStorage:Region" "eu-north-1"
+dotnet user-secrets set "AudioStorage:PublicBaseUrl" "https://dxxxxxxxxxxxxx.cloudfront.net"
+dotnet user-secrets set "AudioStorage:KeyPrefix" "audio/tts"
+```
+
+Run the dev environment in three terminals.
+
+Terminal 1, API:
+
+```powershell
+cd C:\Users\emili\OneDrive\Escritorio\languag.io_back\src
+dotnet run --project Languag.io.Api
+```
+
+Terminal 2, Worker:
+
+```powershell
+cd C:\Users\emili\OneDrive\Escritorio\languag.io_back\src
+dotnet run --project Languag.io.Worker
+```
+
+Terminal 3, frontend:
+
+```powershell
+cd "C:\Users\emili\OneDrive\Escritorio\languag.io front"
+yarn dev
 ```
 
 The development launch profile serves the API at:
@@ -57,6 +133,14 @@ Swagger is enabled in development:
 ```text
 http://localhost:5222/swagger
 ```
+
+The frontend usually runs at:
+
+```text
+http://localhost:3000
+```
+
+To test AI deck audio locally, create an AI deck from the frontend with audio enabled. The worker should process the job, upload MP3 files under `audio/tts/...`, and flashcards should show a volume button in study mode once `frontAudioUrl` is returned by the API.
 
 ## Configuration
 
