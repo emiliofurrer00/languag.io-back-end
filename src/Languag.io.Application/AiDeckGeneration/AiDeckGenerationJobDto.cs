@@ -5,7 +5,9 @@ public record AiDeckGenerationJobDto(
     string Status,
     Guid? CreatedDeckId,
     string? ErrorMessage,
+    string AudioStatus,
     int RequestedCardCount,
+    int RequestedMultiChoiceCount,
     DateTime CreatedAtUtc,
     DateTime? StartedAtUtc,
     DateTime? CompletedAtUtc);

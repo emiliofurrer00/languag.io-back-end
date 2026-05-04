@@ -54,6 +54,8 @@ public class OpenAiDeckGenerator : IAiDeckGenerator
     {
         var targetLanguage = job.TargetLanguage ?? "the target language";
         var nativeLanguage = job.NativeLanguage ?? "English";
+        var multiChoiceCount = Math.Clamp(job.RequestedMultiChoiceCount, 0, job.RequestedCardCount);
+        var flashcardCount = job.RequestedCardCount - multiChoiceCount;
 
         return new
         {
@@ -70,11 +72,15 @@ public class OpenAiDeckGenerator : IAiDeckGenerator
                     role = "user",
                     content = $"""
                     Create a {job.Difficulty} deck with exactly {job.RequestedCardCount} cards.
+                    Include exactly {multiChoiceCount} multi-choice cards and exactly {flashcardCount} flashcard cards.
                     Target language: {targetLanguage}.
                     Native language: {nativeLanguage}.
                     User prompt: {job.Prompt}
 
-                    Put the target-language phrase on frontText and the native-language meaning on backText.
+                    Use type "flashcard" for flashcards and "multi-choice" for multi-choice cards.
+                    For flashcards, put the target-language phrase on frontText, the native-language meaning on backText, and an empty choices array.
+                    For multi-choice cards, put the question on frontText, the correct answer on backText, and exactly 4 native-language choices with exactly one isCorrect true.
+                    Put only the clean target-language speech text in ttsText, with no markdown, numbering, or translation. For multi-choice cards, ttsText should be the target-language phrase being tested.
                     Keep cards practical, beginner-safe when relevant, and avoid duplicates.
                     """
                 }
@@ -105,12 +111,35 @@ public class OpenAiDeckGenerator : IAiDeckGenerator
                                 {
                                     type = "object",
                                     additionalProperties = false,
-                                    required = new[] { "frontText", "backText", "exampleSentence" },
+                                    required = new[] { "type", "frontText", "backText", "ttsText", "exampleSentence", "choices" },
                                     properties = new
                                     {
+                                        type = new
+                                        {
+                                            type = "string",
+                                            @enum = new[] { "flashcard", "multi-choice" }
+                                        },
                                         frontText = new { type = "string" },
                                         backText = new { type = "string" },
-                                        exampleSentence = new { type = "string" }
+                                        ttsText = new { type = "string" },
+                                        exampleSentence = new { type = "string" },
+                                        choices = new
+                                        {
+                                            type = "array",
+                                            minItems = 0,
+                                            maxItems = 4,
+                                            items = new
+                                            {
+                                                type = "object",
+                                                additionalProperties = false,
+                                                required = new[] { "text", "isCorrect" },
+                                                properties = new
+                                                {
+                                                    text = new { type = "string" },
+                                                    isCorrect = new { type = "boolean" }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

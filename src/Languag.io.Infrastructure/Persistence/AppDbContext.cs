@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<CardChoice> CardChoices => Set<CardChoice>();
+    public DbSet<AudioAsset> AudioAssets => Set<AudioAsset>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<StudySession> StudySessions => Set<StudySession>();
@@ -56,6 +57,12 @@ public class AppDbContext : DbContext
             builder.Property(c => c.BackText).IsRequired().HasMaxLength(1000);
             builder.Property(c => c.ExampleSentence).HasMaxLength(2000);
 
+            builder.HasOne(c => c.FrontAudioAsset)
+                   .WithMany()
+                   .HasForeignKey(c => c.FrontAudioAssetId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
             builder.HasMany(c => c.Choices)
                    .WithOne(choice => choice.Card!)
                    .HasForeignKey(choice => choice.CardId)
@@ -67,6 +74,25 @@ public class AppDbContext : DbContext
             builder.HasKey(choice => choice.Id);
             builder.Property(choice => choice.Text).IsRequired().HasMaxLength(1000);
             builder.HasIndex(choice => new { choice.CardId, choice.Order });
+        });
+
+        modelBuilder.Entity<AudioAsset>(builder =>
+        {
+            builder.HasKey(asset => asset.Id);
+            builder.Property(asset => asset.TextHash).IsRequired().HasMaxLength(64);
+            builder.Property(asset => asset.NormalizedText).IsRequired().HasMaxLength(1000);
+            builder.Property(asset => asset.LanguageCode).IsRequired().HasMaxLength(20);
+            builder.Property(asset => asset.Provider).IsRequired().HasMaxLength(40);
+            builder.Property(asset => asset.Model).IsRequired().HasMaxLength(80);
+            builder.Property(asset => asset.Voice).IsRequired().HasMaxLength(40);
+            builder.Property(asset => asset.Speed).HasPrecision(4, 2);
+            builder.Property(asset => asset.InstructionsHash).IsRequired().HasMaxLength(64);
+            builder.Property(asset => asset.StorageKey).IsRequired().HasMaxLength(512);
+            builder.Property(asset => asset.PublicUrl).IsRequired().HasMaxLength(1000);
+            builder.Property(asset => asset.Status).IsRequired();
+            builder.Property(asset => asset.CreatedAtUtc).IsRequired();
+            builder.Property(asset => asset.UpdatedAtUtc).IsRequired();
+            builder.HasIndex(asset => asset.TextHash).IsUnique();
         });
 
         modelBuilder.Entity<User>(builder => {
@@ -206,6 +232,11 @@ public class AppDbContext : DbContext
             builder.Property(job => job.Difficulty).IsRequired().HasMaxLength(40);
             builder.Property(job => job.ErrorMessage).HasMaxLength(2000);
             builder.Property(job => job.Status).IsRequired();
+            builder.Property(job => job.AudioStatus)
+                .IsRequired()
+                .HasDefaultValue(AiDeckAudioStatus.NotRequested);
+            builder.Property(job => job.IncludeAudio).HasDefaultValue(false);
+            builder.Property(job => job.RequestedMultiChoiceCount).HasDefaultValue(0);
             builder.Property(job => job.CreatedAtUtc).IsRequired();
             builder.Property(job => job.RetryCount).HasDefaultValue(0);
 

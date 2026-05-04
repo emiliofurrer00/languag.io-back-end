@@ -156,7 +156,12 @@ public class DeckRepository : IDeckRepository
                         .OrderBy(choice => choice.Order)
                         .Select(choice => new CardChoiceDto(choice.Id, choice.Text, choice.IsCorrect, choice.Order))
                         .ToList(),
-                    c.Order))
+                    c.Order,
+                    c.FrontAudioAssetId,
+                    c.FrontAudioAsset != null && c.FrontAudioAsset.Status == AudioAssetStatus.Ready
+                        ? c.FrontAudioAsset.PublicUrl
+                        : null,
+                    c.FrontAudioAsset != null ? c.FrontAudioAsset.Status.ToString() : null))
                 .ToList(),
             deck.User != null ? deck.User.Username ?? "" : "",
             deck.User != null ? deck.User.Username ?? "" : "",

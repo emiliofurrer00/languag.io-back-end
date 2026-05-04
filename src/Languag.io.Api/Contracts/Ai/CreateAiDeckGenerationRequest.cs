@@ -5,4 +5,6 @@ public record CreateAiDeckGenerationRequest(
     string? TargetLanguage,
     string? NativeLanguage,
     string? Difficulty,
-    int CardCount);
+    int CardCount,
+    bool IncludeAudio = false,
+    int MultiChoiceCount = 0);

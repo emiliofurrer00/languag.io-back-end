@@ -23,13 +23,18 @@ public class AiDeckGenerationTests
                 " French ",
                 " English ",
                 "Beginner",
-                10),
+                10,
+                true,
+                3),
             userId);
 
         Assert.Equal(jobId, repository.Job!.Id);
         Assert.Equal(userId, repository.Job.UserId);
         Assert.Equal("restaurant phrases", repository.Job.Prompt);
         Assert.Equal("French", repository.Job.TargetLanguage);
+        Assert.True(repository.Job.IncludeAudio);
+        Assert.Equal(3, repository.Job.RequestedMultiChoiceCount);
+        Assert.Equal(AiDeckAudioStatus.Pending, repository.Job.AudioStatus);
         Assert.Equal(AiDeckGenerationStatus.Pending, repository.Job.Status);
         Assert.True(repository.SaveChangesCalled);
     }
@@ -46,7 +51,26 @@ public class AiDeckGenerationTests
                     "French",
                     "English",
                     "Beginner",
-                    25),
+                    25,
+                    false),
+                Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task CreateDeckGenerationJobAsync_RejectsMultiChoiceCountsAboveTotalCards()
+    {
+        var service = new AiDeckGenerationService(new CapturingAiDeckGenerationJobRepository());
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.CreateDeckGenerationJobAsync(
+                new CreateAiDeckGenerationJobCommand(
+                    "too many choices",
+                    "French",
+                    "English",
+                    "Beginner",
+                    5,
+                    false,
+                    6),
                 Guid.NewGuid()));
     }
 
@@ -64,6 +88,7 @@ public class AiDeckGenerationTests
             NativeLanguage = "English",
             Difficulty = "Beginner",
             RequestedCardCount = 5,
+            RequestedMultiChoiceCount = 2,
             Status = AiDeckGenerationStatus.Pending,
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -87,13 +112,22 @@ public class AiDeckGenerationTests
 
         var deck = await context.Decks
             .Include(candidate => candidate.Cards)
+                .ThenInclude(card => card.Choices)
             .SingleAsync(candidate => candidate.Id == completedJob.CreatedDeckId);
 
         Assert.Equal(user.Id, deck.OwnerId);
         Assert.Equal(DeckVisibility.Private, deck.Visibility);
         Assert.Equal("Spanish Cafe Basics", deck.Title);
         Assert.Equal(5, deck.Cards.Count);
-        Assert.All(deck.Cards, card => Assert.Equal(CardTypes.Flashcard, card.Type));
+        Assert.Equal(2, deck.Cards.Count(card => card.Type == CardTypes.MultiChoice));
+        Assert.Equal(3, deck.Cards.Count(card => card.Type == CardTypes.Flashcard));
+        Assert.All(
+            deck.Cards.Where(card => card.Type == CardTypes.MultiChoice),
+            card =>
+            {
+                Assert.Equal(4, card.Choices.Count);
+                Assert.Single(card.Choices, choice => choice.IsCorrect);
+            });
     }
 
     private static async Task<AppDbContext> CreateContextAsync()
@@ -139,14 +173,35 @@ public class AiDeckGenerationTests
                 Description = "Useful cafe phrases.",
                 Category = "Languages",
                 Cards = Enumerable.Range(1, job.RequestedCardCount)
-                    .Select(index => new GeneratedCardDto
+                    .Select(index =>
                     {
-                        FrontText = $"frase {index}",
-                        BackText = $"phrase {index}",
-                        ExampleSentence = $"Example {index}."
+                        var isMultiChoice = index <= job.RequestedMultiChoiceCount;
+
+                        return new GeneratedCardDto
+                        {
+                            Type = isMultiChoice ? CardTypes.MultiChoice : CardTypes.Flashcard,
+                            FrontText = isMultiChoice ? $"What does frase {index} mean?" : $"frase {index}",
+                            BackText = $"phrase {index}",
+                            TtsText = $"frase {index}",
+                            ExampleSentence = $"Example {index}.",
+                            Choices = isMultiChoice
+                                ? CreateChoices(index)
+                                : []
+                        };
                     })
                     .ToList()
             });
+        }
+
+        private static List<GeneratedCardChoiceDto> CreateChoices(int index)
+        {
+            return
+            [
+                new() { Text = $"phrase {index}", IsCorrect = true },
+                new() { Text = $"distractor {index}.1", IsCorrect = false },
+                new() { Text = $"distractor {index}.2", IsCorrect = false },
+                new() { Text = $"distractor {index}.3", IsCorrect = false }
+            ];
         }
     }
 

@@ -31,7 +31,12 @@ public class AiDeckGenerationService : IAiDeckGenerationService
             NativeLanguage = NormalizeOptional(command.NativeLanguage),
             Difficulty = NormalizeOptional(command.Difficulty) ?? "Beginner",
             RequestedCardCount = command.CardCount,
+            RequestedMultiChoiceCount = command.MultiChoiceCount,
+            IncludeAudio = command.IncludeAudio,
             Status = AiDeckGenerationStatus.Pending,
+            AudioStatus = command.IncludeAudio
+                ? AiDeckAudioStatus.Pending
+                : AiDeckAudioStatus.NotRequested,
             CreatedAtUtc = DateTime.UtcNow
         };
 
@@ -55,7 +60,9 @@ public class AiDeckGenerationService : IAiDeckGenerationService
                 job.Status.ToString(),
                 job.CreatedDeckId,
                 job.ErrorMessage,
+                job.AudioStatus.ToString(),
                 job.RequestedCardCount,
+                job.RequestedMultiChoiceCount,
                 job.CreatedAtUtc,
                 job.StartedAtUtc,
                 job.CompletedAtUtc);
@@ -76,6 +83,11 @@ public class AiDeckGenerationService : IAiDeckGenerationService
         if (command.CardCount is < MinCardCount or > MaxCardCount)
         {
             throw new ArgumentException("Card count must be between 5 and 20.", nameof(command));
+        }
+
+        if (command.MultiChoiceCount < 0 || command.MultiChoiceCount > command.CardCount)
+        {
+            throw new ArgumentException("Multi-choice count must be between 0 and the total card count.", nameof(command));
         }
     }
 

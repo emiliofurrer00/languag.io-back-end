@@ -22,4 +22,7 @@ public sealed record StudyPlanCardDto(
     int TotalReviews,
     int CorrectReviews,
     decimal Accuracy,
-    string Reason);
+    string Reason,
+    Guid? FrontAudioAssetId,
+    string? FrontAudioUrl,
+    string? FrontAudioStatus);

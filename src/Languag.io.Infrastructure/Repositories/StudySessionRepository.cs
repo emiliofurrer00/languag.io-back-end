@@ -97,7 +97,12 @@ public sealed class StudySessionRepository : IStudySessionRepository
                     .OrderBy(choice => choice.Order)
                     .Select(choice => new CardChoiceDto(choice.Id, choice.Text, choice.IsCorrect, choice.Order))
                     .ToList(),
-                card.Order))
+                card.Order,
+                card.FrontAudioAssetId,
+                card.FrontAudioAsset != null && card.FrontAudioAsset.Status == AudioAssetStatus.Ready
+                    ? card.FrontAudioAsset.PublicUrl
+                    : null,
+                card.FrontAudioAsset != null ? card.FrontAudioAsset.Status.ToString() : null))
             .ToListAsync(ct);
 
         var cardIds = cards.Select(card => card.Id).ToList();
@@ -188,7 +193,10 @@ public sealed class StudySessionRepository : IStudySessionRepository
             state?.TotalReviews ?? 0,
             state?.CorrectReviews ?? 0,
             CalculateAccuracy(state),
-            reason);
+            reason,
+            card.FrontAudioAssetId,
+            card.FrontAudioUrl,
+            card.FrontAudioStatus);
     }
 
     private static int GetStudyPlanPriority(StudyPlanCardDto card)
@@ -323,7 +331,10 @@ public sealed class StudySessionRepository : IStudySessionRepository
         string BackText,
         string? ExampleSentence,
         List<CardChoiceDto> Choices,
-        int Order);
+        int Order,
+        Guid? FrontAudioAssetId,
+        string? FrontAudioUrl,
+        string? FrontAudioStatus);
 
     private static class StudyPlanReasons
     {
