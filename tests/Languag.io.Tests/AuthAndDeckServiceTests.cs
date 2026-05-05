@@ -4,6 +4,7 @@ using Languag.io.Api.Auth;
 using Languag.io.Api.Contracts.Decks;
 using Languag.io.Api.Contracts.Webhooks;
 using Languag.io.Application.ActivityLogs;
+using Languag.io.Application.Common;
 using Languag.io.Application.Decks;
 using Languag.io.Application.Users;
 using Languag.io.Domain.Entities;
@@ -518,12 +519,12 @@ public class AuthAndDeckServiceTests
         public bool SaveChangesCalled { get; private set; }
         public bool UserHasDecksResult { get; init; }
 
-        public Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
+        public Task<CursorPage<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
         {
             throw new NotImplementedException();
         }
 
-        public Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
+        public Task<CursorPage<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
         {
             throw new NotImplementedException();
         }
