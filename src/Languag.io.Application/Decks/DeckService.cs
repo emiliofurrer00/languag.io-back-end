@@ -17,12 +17,12 @@ public class DeckService : IDeckService
         _activityLogRepository = activityLogRepository;
     }
 
-    public async Task<IEnumerable<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
+    public async Task<Languag.io.Application.Common.CursorPage<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
     {
         return await _deckRepository.GetPublicDecksAsync(query, ct);
     }
 
-    public async Task<IEnumerable<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
+    public async Task<Languag.io.Application.Common.CursorPage<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
     {
         return await _deckRepository.GetVisibleDecksAsync(ownerId, query, ct);
     }

@@ -13,31 +13,24 @@ public class DeckRepository : IDeckRepository
     {
         _dbContext = dbContext;
     }
-    public async Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
+    public async Task<Languag.io.Application.Common.CursorPage<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default)
     {
         var decksQuery = _dbContext.Decks
             .AsNoTracking()
             .Where(d => d.Visibility == DeckVisibility.Public)
             .Include(d => d.User);
 
-        return await ProjectToDeckDto(
-                ApplyListFilters(decksQuery, query)
-                    .OrderByDescending(d => d.UpdatedAtUtc))
-            .ToListAsync(ct);
+        return await ReadDeckPageAsync(decksQuery, query, currentUserId: null, ct);
     }
 
-    public async Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
+    public async Task<Languag.io.Application.Common.CursorPage<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default)
     {
         var decksQuery = _dbContext.Decks
             .AsNoTracking()
             .Include(d => d.User)
             .Where(d => d.OwnerId == ownerId || d.Visibility == DeckVisibility.Public);
 
-        return await ProjectToDeckDto(
-                ApplyListFilters(decksQuery, query)
-                    .OrderByDescending(d => d.UpdatedAtUtc),
-                ownerId)
-            .ToListAsync(ct);
+        return await ReadDeckPageAsync(decksQuery, query, ownerId, ct);
     }
 
     public Task<bool> UserHasDecksAsync(Guid ownerId, CancellationToken ct = default)
@@ -108,6 +101,43 @@ public class DeckRepository : IDeckRepository
     public async Task AddCardAsync(Card card, CancellationToken ct) =>
         await _dbContext.Cards.AddAsync(card, ct);
 
+    private async Task<Languag.io.Application.Common.CursorPage<DeckDto>> ReadDeckPageAsync(
+        IQueryable<Deck> query,
+        DeckListQuery? filters,
+        Guid? currentUserId,
+        CancellationToken ct)
+    {
+        var pageSize = filters?.NormalizedPageSize ?? 50;
+        var pageQuery = ApplyListFilters(query, filters);
+
+        if (Languag.io.Application.Common.TimelineCursor.TryDecode(filters?.Cursor, out var cursor))
+        {
+            pageQuery = pageQuery.Where(deck => deck.UpdatedAtUtc < cursor.CreatedAtUtc);
+        }
+
+        var items = await ProjectToDeckPageItem(
+                pageQuery
+                    .OrderByDescending(deck => deck.UpdatedAtUtc)
+                    .ThenByDescending(deck => deck.Id),
+                currentUserId)
+            .Take(pageSize + 1)
+            .ToListAsync(ct);
+
+        var hasNextPage = items.Count > pageSize;
+        if (hasNextPage)
+        {
+            items.RemoveAt(items.Count - 1);
+        }
+
+        var nextCursor = hasNextPage && items.Count > 0
+            ? new Languag.io.Application.Common.TimelineCursor(items[^1].UpdatedAtUtc, items[^1].Id).Encode()
+            : null;
+
+        return new Languag.io.Application.Common.CursorPage<DeckDto>(
+            items.Select(item => item.Deck).ToArray(),
+            nextCursor);
+    }
+
     private static IQueryable<Deck> ApplyListFilters(IQueryable<Deck> query, DeckListQuery? filters)
     {
         var ownerUsername = filters?.NormalizedOwnerUsername;
@@ -137,36 +167,45 @@ public class DeckRepository : IDeckRepository
 
     private static IQueryable<DeckDto> ProjectToDeckDto(IQueryable<Deck> query, Guid? currentUserId = null)
     {
-        return query.Select(deck => new DeckDto(
-            deck.Id,
-            deck.Title,
-            deck.Category ?? string.Empty,
-            deck.Description,
-            deck.Visibility,
-            deck.Color,
-            deck.Cards
-                .OrderBy(c => c.Order)
-                .Select(c => new CardDto(
-                    c.Id,
-                    c.Type,
-                    c.FrontText,
-                    c.BackText,
-                    c.ExampleSentence,
-                    c.Choices
-                        .OrderBy(choice => choice.Order)
-                        .Select(choice => new CardChoiceDto(choice.Id, choice.Text, choice.IsCorrect, choice.Order))
-                        .ToList(),
-                    c.Order,
-                    c.FrontAudioAssetId,
-                    c.FrontAudioAsset != null && c.FrontAudioAsset.Status == AudioAssetStatus.Ready
-                        ? c.FrontAudioAsset.PublicUrl
-                        : null,
-                    c.FrontAudioAsset != null ? c.FrontAudioAsset.Status.ToString() : null))
-                .ToList(),
-            deck.User != null ? deck.User.Username ?? "" : "",
-            deck.User != null ? deck.User.Username ?? "" : "",
-            currentUserId.HasValue && deck.OwnerId == currentUserId.Value,
-            currentUserId.HasValue && deck.OwnerId == currentUserId.Value
-        ));
+        return ProjectToDeckPageItem(query, currentUserId).Select(item => item.Deck);
     }
+
+    private static IQueryable<DeckPageItem> ProjectToDeckPageItem(IQueryable<Deck> query, Guid? currentUserId = null)
+    {
+        return query.Select(deck => new DeckPageItem(
+            deck.Id,
+            deck.UpdatedAtUtc,
+            new DeckDto(
+                deck.Id,
+                deck.Title,
+                deck.Category ?? string.Empty,
+                deck.Description,
+                deck.Visibility,
+                deck.Color,
+                deck.Cards
+                    .OrderBy(c => c.Order)
+                    .Select(c => new CardDto(
+                        c.Id,
+                        c.Type,
+                        c.FrontText,
+                        c.BackText,
+                        c.ExampleSentence,
+                        c.Choices
+                            .OrderBy(choice => choice.Order)
+                            .Select(choice => new CardChoiceDto(choice.Id, choice.Text, choice.IsCorrect, choice.Order))
+                            .ToList(),
+                        c.Order,
+                        c.FrontAudioAssetId,
+                        c.FrontAudioAsset != null && c.FrontAudioAsset.Status == AudioAssetStatus.Ready
+                            ? c.FrontAudioAsset.PublicUrl
+                            : null,
+                        c.FrontAudioAsset != null ? c.FrontAudioAsset.Status.ToString() : null))
+                    .ToList(),
+                deck.User != null ? deck.User.Username ?? "" : "",
+                deck.User != null ? deck.User.Username ?? "" : "",
+                currentUserId.HasValue && deck.OwnerId == currentUserId.Value,
+                currentUserId.HasValue && deck.OwnerId == currentUserId.Value)));
+    }
+
+    private sealed record DeckPageItem(Guid Id, DateTime UpdatedAtUtc, DeckDto Deck);
 }

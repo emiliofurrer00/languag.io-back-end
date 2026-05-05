@@ -1,12 +1,13 @@
-﻿using Languag.io.Api.Contracts.Decks;
+using Languag.io.Api.Contracts.Decks;
+using Languag.io.Application.Common;
 using Languag.io.Domain.Entities;
 
 namespace Languag.io.Application.Decks;
 
 public interface IDeckRepository
 {
-    Task<IReadOnlyList<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default);
-    Task<IReadOnlyList<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default);
+    Task<CursorPage<DeckDto>> GetPublicDecksAsync(DeckListQuery? query = null, CancellationToken ct = default);
+    Task<CursorPage<DeckDto>> GetVisibleDecksAsync(Guid ownerId, DeckListQuery? query = null, CancellationToken ct = default);
     Task<bool> UserHasDecksAsync(Guid ownerId, CancellationToken ct = default);
 
     Task AddAsync(Deck deck, CancellationToken ct = default);
