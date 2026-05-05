@@ -76,8 +76,8 @@ public sealed class SagaRepository : ISagaRepository
         Guid userId,
         CancellationToken ct = default)
     {
-        var requestedDeckIds = deckIds.Distinct().ToArray();
-        if (requestedDeckIds.Length == 0)
+        var requestedDeckIds = deckIds.Distinct().ToList();
+        if (requestedDeckIds.Count == 0)
         {
             return false;
         }
@@ -90,15 +90,15 @@ public sealed class SagaRepository : ISagaRepository
             .Distinct()
             .CountAsync(ct);
 
-        return visibleDeckCount == requestedDeckIds.Length;
+        return visibleDeckCount == requestedDeckIds.Count;
     }
 
     public async Task<bool> AreDecksPublicAsync(
         IReadOnlyCollection<Guid> deckIds,
         CancellationToken ct = default)
     {
-        var requestedDeckIds = deckIds.Distinct().ToArray();
-        if (requestedDeckIds.Length == 0)
+        var requestedDeckIds = deckIds.Distinct().ToList();
+        if (requestedDeckIds.Count == 0)
         {
             return false;
         }
@@ -111,7 +111,7 @@ public sealed class SagaRepository : ISagaRepository
             .Distinct()
             .CountAsync(ct);
 
-        return publicDeckCount == requestedDeckIds.Length;
+        return publicDeckCount == requestedDeckIds.Count;
     }
 
     public async Task AddAsync(Saga saga, CancellationToken ct = default)
