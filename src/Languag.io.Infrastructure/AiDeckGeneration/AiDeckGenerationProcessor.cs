@@ -36,21 +36,11 @@ public class AiDeckGenerationProcessor
 
     public async Task<bool> ProcessNextPendingJobAsync(CancellationToken ct = default)
     {
-        var job = await _dbContext.AiDeckGenerationJobs
-            .Where(candidate => candidate.Status == AiDeckGenerationStatus.Pending)
-            .OrderBy(candidate => candidate.CreatedAtUtc)
-            .FirstOrDefaultAsync(ct);
-
+        var job = await ClaimNextPendingJobAsync(ct);
         if (job is null)
         {
             return false;
         }
-
-        job.Status = AiDeckGenerationStatus.Processing;
-        job.StartedAtUtc = DateTime.UtcNow;
-        job.ErrorMessage = null;
-
-        await _dbContext.SaveChangesAsync(ct);
 
         try
         {
@@ -133,6 +123,41 @@ public class AiDeckGenerationProcessor
 
             return true;
         }
+    }
+
+    private async Task<AiDeckGenerationJob?> ClaimNextPendingJobAsync(CancellationToken ct)
+    {
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
+
+        var job = await _dbContext.AiDeckGenerationJobs
+            .FromSqlInterpolated($"""
+                SELECT *
+                FROM "AiDeckGenerationJobs"
+                WHERE "Id" = (
+                    SELECT "Id"
+                    FROM "AiDeckGenerationJobs"
+                    WHERE "Status" = {(int)AiDeckGenerationStatus.Pending}
+                    ORDER BY "CreatedAtUtc"
+                    FOR UPDATE SKIP LOCKED
+                    LIMIT 1
+                )
+                """)
+            .FirstOrDefaultAsync(ct);
+
+        if (job is null)
+        {
+            await transaction.CommitAsync(ct);
+            return null;
+        }
+
+        job.Status = AiDeckGenerationStatus.Processing;
+        job.StartedAtUtc = DateTime.UtcNow;
+        job.ErrorMessage = null;
+
+        await _dbContext.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+
+        return job;
     }
 
     private static ActivityLog CreateActivityLog(
