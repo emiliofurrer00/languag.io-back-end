@@ -22,6 +22,8 @@ public class User
     public List<StudySession> StudySessions { get; set; } = new List<StudySession>();
     public List<StudySessionResponse> StudySessionResponses { get; set; } = new List<StudySessionResponse>();
     public List<CardReviewState> CardReviewStates { get; set; } = new List<CardReviewState>();
+    public List<Saga> Sagas { get; set; } = new List<Saga>();
+    public List<SagaProgress> SagaProgresses { get; set; } = new List<SagaProgress>();
     public List<FriendRequest> SentFriendRequests { get; set; } = new List<FriendRequest>();
     public List<FriendRequest> ReceivedFriendRequests { get; set; } = new List<FriendRequest>();
     public List<Friendship> FriendshipsAsUser1 { get; set; } = new List<Friendship>();

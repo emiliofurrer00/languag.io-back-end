@@ -30,6 +30,7 @@ namespace Languag.io.Domain.Entities
         public List<StudySession> StudySessions { get; set; } = [];
         public List<StudySessionResponse> StudySessionResponses { get; set; } = [];
         public List<CardReviewState> CardReviewStates { get; set; } = [];
+        public List<SagaLesson> SagaLessons { get; set; } = [];
     }
 
     public enum DeckVisibility

@@ -3,6 +3,7 @@ using Languag.io.Application.Decks;
 using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
 using Languag.io.Application.Notifications;
+using Languag.io.Application.Sagas;
 using Languag.io.Application.StudySessions;
 using Languag.io.Application.Users;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<IFeedService, FeedService>();
         services.AddScoped<IFriendService, FriendService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<ISagaService, SagaService>();
         services.AddScoped<IStudySessionService, StudySessionService>();
         services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddScoped<IProfilePictureService, ProfilePictureService>();

@@ -19,6 +19,10 @@ public class AppDbContext : DbContext
     public DbSet<StudySession> StudySessions => Set<StudySession>();
     public DbSet<StudySessionResponse> StudySessionResponses => Set<StudySessionResponse>();
     public DbSet<CardReviewState> CardReviewStates => Set<CardReviewState>();
+    public DbSet<Saga> Sagas => Set<Saga>();
+    public DbSet<SagaChapter> SagaChapters => Set<SagaChapter>();
+    public DbSet<SagaLesson> SagaLessons => Set<SagaLesson>();
+    public DbSet<SagaProgress> SagaProgresses => Set<SagaProgress>();
     public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -253,6 +257,90 @@ public class AppDbContext : DbContext
 
             builder.HasIndex(job => new { job.Status, job.CreatedAtUtc });
             builder.HasIndex(job => new { job.UserId, job.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<Saga>(builder =>
+        {
+            builder.HasKey(s => s.Id);
+            builder.Property(s => s.Title).IsRequired().HasMaxLength(200);
+            builder.Property(s => s.Description).HasMaxLength(1000);
+            builder.Property(s => s.Category).HasMaxLength(80);
+            builder.Property(s => s.Color).HasMaxLength(20);
+            builder.Property(s => s.CreatedAtUtc).IsRequired();
+            builder.Property(s => s.UpdatedAtUtc).IsRequired();
+
+            builder.HasOne(s => s.User)
+                   .WithMany(u => u.Sagas)
+                   .HasForeignKey(s => s.OwnerId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(s => s.Chapters)
+                   .WithOne(c => c.Saga)
+                   .HasForeignKey(c => c.SagaId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(s => s.Progresses)
+                   .WithOne(p => p.Saga)
+                   .HasForeignKey(p => p.SagaId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(s => new { s.OwnerId, s.UpdatedAtUtc });
+            builder.HasIndex(s => s.Visibility);
+        });
+
+        modelBuilder.Entity<SagaChapter>(builder =>
+        {
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.Title).IsRequired().HasMaxLength(200);
+            builder.Property(c => c.Description).HasMaxLength(1000);
+
+            builder.HasMany(c => c.Lessons)
+                   .WithOne(l => l.SagaChapter)
+                   .HasForeignKey(l => l.SagaChapterId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(c => new { c.SagaId, c.Order });
+        });
+
+        modelBuilder.Entity<SagaLesson>(builder =>
+        {
+            builder.HasKey(l => l.Id);
+            builder.Property(l => l.Title).HasMaxLength(200);
+            builder.Property(l => l.Description).HasMaxLength(1000);
+
+            builder.HasOne(l => l.Deck)
+                   .WithMany(d => d.SagaLessons)
+                   .HasForeignKey(l => l.DeckId)
+                   .OnDelete(DeleteBehavior.Restrict);
+
+            builder.HasIndex(l => new { l.SagaChapterId, l.Order });
+            builder.HasIndex(l => l.DeckId);
+        });
+
+        modelBuilder.Entity<SagaProgress>(builder =>
+        {
+            builder.HasKey(p => new { p.SagaId, p.UserId });
+            builder.Property(p => p.StartedAtUtc).IsRequired();
+            builder.Property(p => p.LastStudiedAtUtc).IsRequired();
+
+            builder.HasOne(p => p.User)
+                   .WithMany(u => u.SagaProgresses)
+                   .HasForeignKey(p => p.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(p => p.LastStudiedLesson)
+                   .WithMany()
+                   .HasForeignKey(p => p.LastStudiedLessonId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasOne(p => p.HighestCompletedLesson)
+                   .WithMany()
+                   .HasForeignKey(p => p.HighestCompletedLessonId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasIndex(p => new { p.UserId, p.LastStudiedAtUtc });
         });
     }
 }
