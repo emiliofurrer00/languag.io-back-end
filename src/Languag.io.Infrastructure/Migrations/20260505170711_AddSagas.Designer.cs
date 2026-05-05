@@ -3,6 +3,7 @@ using System;
 using Languag.io.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Languag.io.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260505170711_AddSagas")]
+    partial class AddSagas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -61,158 +64,6 @@ namespace Languag.io.Infrastructure.Migrations
                     b.ToTable("ActivityLogs");
                 });
 
-            modelBuilder.Entity("Languag.io.Domain.Entities.AiDeckGenerationJob", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("AudioStatus")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedDeckId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Difficulty")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<bool>("IncludeAudio")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("NativeLanguage")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Prompt")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<int>("RequestedCardCount")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RequestedMultiChoiceCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<int>("RetryCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTime?>("StartedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TargetLanguage")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedDeckId");
-
-                    b.HasIndex("Status", "CreatedAtUtc");
-
-                    b.HasIndex("UserId", "CreatedAtUtc");
-
-                    b.ToTable("AiDeckGenerationJobs");
-                });
-
-            modelBuilder.Entity("Languag.io.Domain.Entities.AudioAsset", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("InstructionsHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("LanguageCode")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("NormalizedText")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("PublicUrl")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<decimal>("Speed")
-                        .HasPrecision(4, 2)
-                        .HasColumnType("numeric(4,2)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("StorageKey")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
-
-                    b.Property<string>("TextHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Voice")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TextHash")
-                        .IsUnique();
-
-                    b.ToTable("AudioAssets");
-                });
-
             modelBuilder.Entity("Languag.io.Domain.Entities.Card", b =>
                 {
                     b.Property<Guid>("Id")
@@ -233,9 +84,6 @@ namespace Languag.io.Infrastructure.Migrations
                     b.Property<string>("ExampleSentence")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
-
-                    b.Property<Guid?>("FrontAudioAssetId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("FrontText")
                         .IsRequired()
@@ -258,8 +106,6 @@ namespace Languag.io.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DeckId");
-
-                    b.HasIndex("FrontAudioAssetId");
 
                     b.ToTable("Cards");
                 });
@@ -814,24 +660,6 @@ namespace Languag.io.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Languag.io.Domain.Entities.AiDeckGenerationJob", b =>
-                {
-                    b.HasOne("Languag.io.Domain.Entities.Deck", "CreatedDeck")
-                        .WithMany()
-                        .HasForeignKey("CreatedDeckId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Languag.io.Domain.Entities.User", "User")
-                        .WithMany("AiDeckGenerationJobs")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CreatedDeck");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Languag.io.Domain.Entities.Card", b =>
                 {
                     b.HasOne("Languag.io.Domain.Entities.Deck", "Deck")
@@ -840,14 +668,7 @@ namespace Languag.io.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Languag.io.Domain.Entities.AudioAsset", "FrontAudioAsset")
-                        .WithMany()
-                        .HasForeignKey("FrontAudioAssetId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Deck");
-
-                    b.Navigation("FrontAudioAsset");
                 });
 
             modelBuilder.Entity("Languag.io.Domain.Entities.CardChoice", b =>
@@ -1133,8 +954,6 @@ namespace Languag.io.Infrastructure.Migrations
             modelBuilder.Entity("Languag.io.Domain.Entities.User", b =>
                 {
                     b.Navigation("ActivityLogs");
-
-                    b.Navigation("AiDeckGenerationJobs");
 
                     b.Navigation("AuthoredNotifications");
 
