@@ -5,6 +5,7 @@ using Languag.io.Application.Decks;
 using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
 using Languag.io.Application.Notifications;
+using Languag.io.Application.Sagas;
 using Languag.io.Application.StudySessions;
 using Languag.io.Application.Users;
 using Languag.io.Infrastructure.Audio;
@@ -33,6 +34,7 @@ public static class DependencyInjection
 
         services.AddScoped<IDeckRepository, DeckRepository>();
         services.AddScoped<IFeedRepository, FeedRepository>();
+        services.AddScoped<ISagaRepository, SagaRepository>();
         services.AddScoped<IStudySessionRepository, StudySessionRepository>();
         services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
         services.AddScoped<IFriendRequestRepository, FriendRequestRepository>();
