@@ -12,6 +12,8 @@ namespace Languag.io.Api.Webhooks;
 
 public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
 {
+    private static readonly HashSet<string> AllowedSigningAlgorithms = [SecurityAlgorithms.RsaSha256];
+
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -19,6 +21,8 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
 
     private readonly JwtSecurityTokenHandler _tokenHandler = new();
     private readonly ConfigurationManager<OpenIdConnectConfiguration> _configurationManager;
+    private readonly string _authority;
+    private readonly string _audience;
     private readonly ILogger<KindeWebhookDecoder> _logger;
     public KindeWebhookDecoder(IOptions<KindeJwtOptions> kindeOptions, ILogger<KindeWebhookDecoder> logger)
     {
@@ -28,6 +32,8 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
             throw new InvalidOperationException("Authentication:Kinde:Authority must be configured to decode Kinde webhooks.");
         }
 
+        _authority = authority;
+        _audience = kindeOptions.Value.Audience?.Trim() ?? string.Empty;
         _logger = logger;
         _configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
             $"{authority}/.well-known/openid-configuration",
@@ -46,6 +52,17 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
         }
 
         var jwt = rawJwt.Trim();
+        if (!_tokenHandler.CanReadToken(jwt))
+        {
+            return Invalid("Webhook JWT could not be read.");
+        }
+
+        var token = _tokenHandler.ReadJwtToken(jwt);
+        if (!AllowedSigningAlgorithms.Contains(token.Header.Alg))
+        {
+            return Invalid("Webhook JWT used an unsupported signing algorithm.");
+        }
+
         var configuration = await LoadConfigurationAsync(ct);
         if (configuration is null)
         {
@@ -55,21 +72,29 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
         var validation = await _tokenHandler.ValidateTokenAsync(jwt, new TokenValidationParameters
         {
             // Kinde webhook JWTs are documented as signed event envelopes, not API/user access tokens.
-            // In production we have seen webhook tokens without a standard `iss` claim, so signature
-            // verification against Kinde's JWKS is the reliable authenticity check here.
+            // Some webhook tokens are missing standard issuer/audience/lifetime claims, so the
+            // mandatory authenticity check is the Kinde JWKS signature; any present registered
+            // claims are checked below.
             ValidateIssuer = false,
             ValidateAudience = false,
             ValidateLifetime = false,
             RequireExpirationTime = false,
             RequireSignedTokens = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = configuration.SigningKeys
+            IssuerSigningKeys = configuration.SigningKeys,
+            ValidAlgorithms = [.. AllowedSigningAlgorithms]
         });
 
         if (!validation.IsValid)
         {
             _logger.LogWarning(validation.Exception, "Rejected Kinde webhook JWT.");
             return Invalid("Webhook JWT validation failed.");
+        }
+
+        var registeredClaimValidationError = ValidateRegisteredClaims(token);
+        if (registeredClaimValidationError is not null)
+        {
+            return Invalid(registeredClaimValidationError);
         }
 
         try
@@ -85,6 +110,29 @@ public sealed class KindeWebhookDecoder : IKindeWebhookDecoder
             _logger.LogWarning(ex, "Kinde webhook JWT was valid but its payload could not be parsed.");
             return Invalid("Webhook payload could not be decoded.");
         }
+    }
+
+    private string? ValidateRegisteredClaims(JwtSecurityToken token)
+    {
+        if (!string.IsNullOrWhiteSpace(token.Issuer) &&
+            !string.Equals(token.Issuer.TrimEnd('/'), _authority, StringComparison.Ordinal))
+        {
+            return "Webhook JWT issuer did not match the configured Kinde authority.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(_audience) &&
+            token.Audiences.Any() &&
+            !token.Audiences.Contains(_audience, StringComparer.Ordinal))
+        {
+            return "Webhook JWT audience did not match the configured Kinde audience.";
+        }
+
+        if (token.ValidTo != DateTime.MinValue && token.ValidTo <= DateTime.UtcNow)
+        {
+            return "Webhook JWT was expired.";
+        }
+
+        return null;
     }
 
     private async Task<OpenIdConnectConfiguration?> LoadConfigurationAsync(CancellationToken ct)

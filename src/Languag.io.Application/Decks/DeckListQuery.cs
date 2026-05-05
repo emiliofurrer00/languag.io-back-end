@@ -2,14 +2,20 @@ namespace Languag.io.Application.Decks;
 
 public sealed class DeckListQuery
 {
+    private const int DefaultPageSize = 50;
+    private const int MaxPageSize = 100;
+
     public string? SearchQuery { get; init; }
     public string? Search { get; init; }
     public string? Q { get; init; }
     public string? Username { get; init; }
     public string? Owner { get; init; }
+    public string? Cursor { get; init; }
+    public int? PageSize { get; init; }
 
     public string? NormalizedSearchQuery => FirstTrimmed(SearchQuery, Search, Q);
     public string? NormalizedOwnerUsername => FirstTrimmed(Username, Owner);
+    public int NormalizedPageSize => Math.Clamp(PageSize ?? DefaultPageSize, 1, MaxPageSize);
 
     private static string? FirstTrimmed(params string?[] values)
     {

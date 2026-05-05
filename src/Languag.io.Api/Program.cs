@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using System.Net;
 using System.Threading.RateLimiting;
 
 const long DefaultMaxRequestBodyBytes = 1024 * 1024;
@@ -30,8 +31,7 @@ builder.Services.AddMemoryCache();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
+    ConfigureKnownForwardedHeaderSources(options, builder.Configuration);
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -213,4 +213,71 @@ static string[] ReadAllowedOrigins(IConfiguration configuration)
     }
 
     return ["http://localhost:3000", "https://languagio.vercel.app"];
+}
+
+static void ConfigureKnownForwardedHeaderSources(
+    ForwardedHeadersOptions options,
+    IConfiguration configuration)
+{
+    var knownProxyValues = ReadConfigList(
+        configuration,
+        "ForwardedHeaders:KnownProxies",
+        "FORWARDED_HEADERS_KNOWN_PROXIES");
+    var knownNetworkValues = ReadConfigList(
+        configuration,
+        "ForwardedHeaders:KnownNetworks",
+        "FORWARDED_HEADERS_KNOWN_NETWORKS");
+
+    if (knownProxyValues.Length == 0 && knownNetworkValues.Length == 0)
+    {
+        return;
+    }
+
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+
+    foreach (var value in knownProxyValues)
+    {
+        if (IPAddress.TryParse(value, out var address))
+        {
+            options.KnownProxies.Add(address);
+        }
+    }
+
+    foreach (var value in knownNetworkValues)
+    {
+        if (System.Net.IPNetwork.TryParse(value, out var network))
+        {
+            options.KnownIPNetworks.Add(network);
+        }
+    }
+}
+
+static string[] ReadConfigList(IConfiguration configuration, params string[] keys)
+{
+    foreach (var key in keys)
+    {
+        var sectionValues = configuration.GetSection(key).Get<string[]>();
+        if (sectionValues is { Length: > 0 })
+        {
+            return sectionValues
+                .SelectMany(SplitConfigListValue)
+                .ToArray();
+        }
+
+        var value = configuration[key];
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return SplitConfigListValue(value).ToArray();
+        }
+    }
+
+    return [];
+}
+
+static IEnumerable<string> SplitConfigListValue(string value)
+{
+    return value
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(item => !string.IsNullOrWhiteSpace(item));
 }
