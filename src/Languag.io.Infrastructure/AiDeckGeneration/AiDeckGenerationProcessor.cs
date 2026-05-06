@@ -129,20 +129,7 @@ public class AiDeckGenerationProcessor
     {
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
 
-        var job = await _dbContext.AiDeckGenerationJobs
-            .FromSqlInterpolated($"""
-                SELECT *
-                FROM "AiDeckGenerationJobs"
-                WHERE "Id" = (
-                    SELECT "Id"
-                    FROM "AiDeckGenerationJobs"
-                    WHERE "Status" = {(int)AiDeckGenerationStatus.Pending}
-                    ORDER BY "CreatedAtUtc"
-                    FOR UPDATE SKIP LOCKED
-                    LIMIT 1
-                )
-                """)
-            .FirstOrDefaultAsync(ct);
+        var job = await ReadNextPendingJobForClaimAsync(ct);
 
         if (job is null)
         {
@@ -158,6 +145,35 @@ public class AiDeckGenerationProcessor
         await transaction.CommitAsync(ct);
 
         return job;
+    }
+
+    private Task<AiDeckGenerationJob?> ReadNextPendingJobForClaimAsync(CancellationToken ct)
+    {
+        if (string.Equals(
+            _dbContext.Database.ProviderName,
+            "Npgsql.EntityFrameworkCore.PostgreSQL",
+            StringComparison.Ordinal))
+        {
+            return _dbContext.AiDeckGenerationJobs
+                .FromSqlInterpolated($"""
+                    SELECT *
+                    FROM "AiDeckGenerationJobs"
+                    WHERE "Id" = (
+                        SELECT "Id"
+                        FROM "AiDeckGenerationJobs"
+                        WHERE "Status" = {(int)AiDeckGenerationStatus.Pending}
+                        ORDER BY "CreatedAtUtc"
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT 1
+                    )
+                    """)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return _dbContext.AiDeckGenerationJobs
+            .Where(candidate => candidate.Status == AiDeckGenerationStatus.Pending)
+            .OrderBy(candidate => candidate.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
     }
 
     private static ActivityLog CreateActivityLog(

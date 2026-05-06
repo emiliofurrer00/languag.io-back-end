@@ -25,13 +25,14 @@ public sealed class DeckRepositoryTests
         context.Decks.AddRange(matchingPublicDeck, matchingPrivateDeck, otherOwnerDeck, otherTopicDeck);
         await context.SaveChangesAsync();
 
-        var decks = await repository.GetPublicDecksAsync(new DeckListQuery
+        var page = await repository.GetPublicDecksAsync(new DeckListQuery
         {
             Username = " ada ",
             SearchQuery = "spanish"
         });
 
-        var deck = Assert.Single(decks);
+        var deck = Assert.Single(page.Items);
+        Assert.Null(page.NextCursor);
         Assert.Equal(matchingPublicDeck.Id, deck.Id);
         Assert.Equal("ada", deck.OwnerName);
         Assert.Equal("ada", deck.OwnerUsername);
@@ -55,13 +56,13 @@ public sealed class DeckRepositoryTests
         context.Decks.AddRange(ownedPrivateDeck, publicMatchingDeck, privateOtherDeck, nonMatchingDeck);
         await context.SaveChangesAsync();
 
-        var decks = await repository.GetVisibleDecksAsync(currentUser.Id, new DeckListQuery
+        var page = await repository.GetVisibleDecksAsync(currentUser.Id, new DeckListQuery
         {
             Q = "spanish"
         });
 
         Assert.Collection(
-            decks,
+            page.Items,
             deck =>
             {
                 Assert.Equal(ownedPrivateDeck.Id, deck.Id);
