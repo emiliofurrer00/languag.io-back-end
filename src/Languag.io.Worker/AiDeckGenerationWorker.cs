@@ -24,8 +24,10 @@ public class AiDeckGenerationWorker : BackgroundService
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<AiDeckGenerationProcessor>();
-                var processedJob = await processor.ProcessNextPendingJobAsync(stoppingToken);
+                var deckProcessor = scope.ServiceProvider.GetRequiredService<AiDeckGenerationProcessor>();
+                var sagaProcessor = scope.ServiceProvider.GetRequiredService<AiSagaGenerationProcessor>();
+                var processedJob = await deckProcessor.ProcessNextPendingJobAsync(stoppingToken) ||
+                    await sagaProcessor.ProcessNextPendingJobAsync(stoppingToken);
                 var delay = processedJob ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(5);
 
                 await Task.Delay(delay, stoppingToken);

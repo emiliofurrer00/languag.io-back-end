@@ -1,5 +1,6 @@
 using Languag.io.Application.ActivityLogs;
 using Languag.io.Application.AiDeckGeneration;
+using Languag.io.Application.AiSagaGeneration;
 using Languag.io.Application.Audio;
 using Languag.io.Application.Decks;
 using Languag.io.Application.Feed;
@@ -41,10 +42,12 @@ public static class DependencyInjection
         services.AddScoped<IFriendshipRepository, FriendshipRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IAiDeckGenerationJobRepository, AiDeckGenerationJobRepository>();
+        services.AddScoped<IAiSagaGenerationJobRepository, AiSagaGenerationJobRepository>();
         services.AddScoped<IUserIdentityService, UserIdentityService>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
         services.AddScoped<IAudioAssetService, AudioAssetService>();
         services.AddScoped<AiDeckGenerationProcessor>();
+        services.AddScoped<AiSagaGenerationProcessor>();
         services.Configure<OpenAiDeckGeneratorOptions>(options =>
         {
             options.ApiKey = configuration["OPENAI_API_KEY"] ?? configuration["OpenAI:ApiKey"];
@@ -118,10 +121,16 @@ public static class DependencyInjection
                 client.BaseAddress = new Uri("https://api.openai.com/v1/");
                 client.Timeout = TimeSpan.FromSeconds(90);
             });
+            services.AddHttpClient<IAiSagaGenerator, OpenAiSagaGenerator>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.openai.com/v1/");
+                client.Timeout = TimeSpan.FromSeconds(180);
+            });
         }
         else
         {
             services.AddScoped<IAiDeckGenerator, MockAiDeckGenerator>();
+            services.AddScoped<IAiSagaGenerator, MockAiSagaGenerator>();
         }
 
         services.AddSingleton<S3ProfilePictureStorage>();
