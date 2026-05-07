@@ -7,8 +7,10 @@ public class StudySessionResponse
     public StudySession StudySession { get; set; } = null!;
     public Guid DeckId { get; set; }
     public Deck Deck { get; set; } = null!;
-    public Guid CardId { get; set; }
-    public Card Card { get; set; } = null!;
+    public Guid? CardId { get; set; }
+    public Card? Card { get; set; }
+    public Guid? DeckVersionCardId { get; set; }
+    public DeckVersionCard? DeckVersionCard { get; set; }
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
     public bool WasCorrect { get; set; }

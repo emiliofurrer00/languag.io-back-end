@@ -23,9 +23,11 @@ namespace Languag.io.Domain.Entities
 
         public DeckVisibility Visibility { get; set; } = DeckVisibility.Private;
 
+        public int CurrentVersionNumber { get; set; } = 1;
         public DateTime CreatedAtUtc { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
         public List<Card> Cards { get; set; } = [];
+        public List<DeckVersion> Versions { get; set; } = [];
         public List<ActivityLog> ActivityLogs { get; set; } = [];
         public List<StudySession> StudySessions { get; set; } = [];
         public List<StudySessionResponse> StudySessionResponses { get; set; } = [];

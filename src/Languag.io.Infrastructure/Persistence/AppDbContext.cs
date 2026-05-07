@@ -11,6 +11,9 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Deck> Decks => Set<Deck>();
+    public DbSet<DeckVersion> DeckVersions => Set<DeckVersion>();
+    public DbSet<DeckVersionCard> DeckVersionCards => Set<DeckVersionCard>();
+    public DbSet<DeckVersionCardChoice> DeckVersionCardChoices => Set<DeckVersionCardChoice>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<CardChoice> CardChoices => Set<CardChoice>();
     public DbSet<AudioAsset> AudioAssets => Set<AudioAsset>();
@@ -40,10 +43,16 @@ public class AppDbContext : DbContext
             builder.Property(d => d.Description).HasMaxLength(1000);
             builder.Property(d => d.Category).HasMaxLength(80);
             builder.Property(d => d.Color).HasMaxLength(20);
+            builder.Property(d => d.CurrentVersionNumber).IsRequired().HasDefaultValue(1);
 
             builder.HasMany(d => d.Cards)
                    .WithOne(c => c.Deck!)
                    .HasForeignKey(c => c.DeckId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(d => d.Versions)
+                   .WithOne(v => v.Deck)
+                   .HasForeignKey(v => v.DeckId)
                    .OnDelete(DeleteBehavior.Cascade);
 
             builder.HasOne(d => d.User)
@@ -51,6 +60,64 @@ public class AppDbContext : DbContext
                    .HasForeignKey(u => u.OwnerId)
                    .OnDelete(DeleteBehavior.Cascade)
                    .IsRequired(false);
+        });
+
+        modelBuilder.Entity<DeckVersion>(builder =>
+        {
+            builder.HasKey(v => v.Id);
+            builder.Property(v => v.VersionNumber).IsRequired();
+            builder.Property(v => v.Title).IsRequired().HasMaxLength(200);
+            builder.Property(v => v.Description).HasMaxLength(1000);
+            builder.Property(v => v.Category).HasMaxLength(80);
+            builder.Property(v => v.Color).HasMaxLength(20);
+            builder.Property(v => v.Visibility).IsRequired();
+            builder.Property(v => v.CreatedAtUtc).IsRequired();
+
+            builder.HasOne(v => v.CreatedByUser)
+                   .WithMany()
+                   .HasForeignKey(v => v.CreatedByUserId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasMany(v => v.Cards)
+                   .WithOne(c => c.DeckVersion)
+                   .HasForeignKey(c => c.DeckVersionId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(v => new { v.DeckId, v.VersionNumber }).IsUnique();
+            builder.HasIndex(v => v.CreatedByUserId);
+        });
+
+        modelBuilder.Entity<DeckVersionCard>(builder =>
+        {
+            builder.HasKey(c => c.Id);
+            builder.Property(c => c.Type).IsRequired().HasMaxLength(40);
+            builder.Property(c => c.FrontText).IsRequired().HasMaxLength(1000);
+            builder.Property(c => c.BackText).IsRequired().HasMaxLength(1000);
+            builder.Property(c => c.ExampleSentence).HasMaxLength(2000);
+
+            builder.HasOne(c => c.FrontAudioAsset)
+                   .WithMany()
+                   .HasForeignKey(c => c.FrontAudioAssetId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasMany(c => c.Choices)
+                   .WithOne(choice => choice.DeckVersionCard)
+                   .HasForeignKey(choice => choice.DeckVersionCardId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasIndex(c => new { c.DeckVersionId, c.Order });
+            builder.HasIndex(c => c.OriginalCardId);
+            builder.HasIndex(c => c.FrontAudioAssetId);
+        });
+
+        modelBuilder.Entity<DeckVersionCardChoice>(builder =>
+        {
+            builder.HasKey(choice => choice.Id);
+            builder.Property(choice => choice.Text).IsRequired().HasMaxLength(1000);
+            builder.HasIndex(choice => new { choice.DeckVersionCardId, choice.Order });
+            builder.HasIndex(choice => choice.OriginalChoiceId);
         });
 
         modelBuilder.Entity<Card>(builder =>
@@ -154,6 +221,12 @@ public class AppDbContext : DbContext
                    .HasForeignKey(s => s.DeckId)
                    .OnDelete(DeleteBehavior.Cascade);
 
+            builder.HasOne(s => s.DeckVersion)
+                   .WithMany(v => v.StudySessions)
+                   .HasForeignKey(s => s.DeckVersionId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
             builder.HasOne(s => s.User)
                    .WithMany(u => u.StudySessions)
                    .HasForeignKey(s => s.UserId)
@@ -166,6 +239,7 @@ public class AppDbContext : DbContext
 
             builder.HasIndex(s => new { s.UserId, s.CreatedAtUtc });
             builder.HasIndex(s => new { s.DeckId, s.CreatedAtUtc });
+            builder.HasIndex(s => s.DeckVersionId);
         });
 
         modelBuilder.Entity<StudySessionResponse>(builder =>
@@ -186,7 +260,14 @@ public class AppDbContext : DbContext
             builder.HasOne(r => r.Card)
                    .WithMany(c => c.StudySessionResponses)
                    .HasForeignKey(r => r.CardId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasOne(r => r.DeckVersionCard)
+                   .WithMany(c => c.StudySessionResponses)
+                   .HasForeignKey(r => r.DeckVersionCardId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
 
             builder.HasOne(r => r.User)
                    .WithMany(u => u.StudySessionResponses)
@@ -195,6 +276,7 @@ public class AppDbContext : DbContext
 
             builder.HasIndex(r => new { r.StudySessionId, r.CardId });
             builder.HasIndex(r => new { r.UserId, r.DeckId });
+            builder.HasIndex(r => r.DeckVersionCardId);
         });
 
         modelBuilder.Entity<CardReviewState>(builder =>
