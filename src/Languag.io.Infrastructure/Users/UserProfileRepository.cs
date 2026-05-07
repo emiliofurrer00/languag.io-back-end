@@ -207,6 +207,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
         DateTime occurredAtUtc)
     {
         var safeDeckTitle = string.IsNullOrWhiteSpace(deckTitle) ? "a deck" : deckTitle.Trim();
+        var safeSagaTitle = string.IsNullOrWhiteSpace(metadata) ? "a saga" : metadata.Trim();
 
         return type switch
         {
@@ -233,6 +234,24 @@ public sealed class UserProfileRepository : IUserProfileRepository
                 type.ToString(),
                 $"Mastered {safeDeckTitle}",
                 "Completed a perfect study session for this deck.",
+                occurredAtUtc),
+            ActivityType.SagaCreated => new UserProfileActivityDto(
+                id,
+                type.ToString(),
+                $"Created saga {safeSagaTitle}",
+                "Built a new guided learning path.",
+                occurredAtUtc),
+            ActivityType.SagaLessonCompleted => new UserProfileActivityDto(
+                id,
+                type.ToString(),
+                $"Completed a lesson in {safeSagaTitle}",
+                "Made progress through this saga.",
+                occurredAtUtc),
+            ActivityType.SagaCompleted => new UserProfileActivityDto(
+                id,
+                type.ToString(),
+                $"Completed saga {safeSagaTitle}",
+                "Finished every lesson in this saga.",
                 occurredAtUtc),
             ActivityType.DayStreakReached => new UserProfileActivityDto(
                 id,

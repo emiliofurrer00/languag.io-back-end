@@ -1,3 +1,4 @@
+using Languag.io.Application.ActivityLogs;
 using Languag.io.Domain.Entities;
 
 namespace Languag.io.Application.Sagas;
@@ -5,10 +6,14 @@ namespace Languag.io.Application.Sagas;
 public sealed class SagaService : ISagaService
 {
     private readonly ISagaRepository _sagaRepository;
+    private readonly IActivityLogRepository _activityLogRepository;
 
-    public SagaService(ISagaRepository sagaRepository)
+    public SagaService(
+        ISagaRepository sagaRepository,
+        IActivityLogRepository activityLogRepository)
     {
         _sagaRepository = sagaRepository;
+        _activityLogRepository = activityLogRepository;
     }
 
     public Task<IReadOnlyList<SagaDto>> GetPublicSagasAsync(CancellationToken ct = default)
@@ -81,6 +86,9 @@ public sealed class SagaService : ISagaService
         }
 
         await _sagaRepository.AddAsync(saga, ct);
+        await _activityLogRepository.AddAsync(
+            CreateActivityLog(ownerId, saga.Title, ActivityType.SagaCreated, now),
+            ct);
         await _sagaRepository.SaveChangesAsync(ct);
 
         return new CreateSagaResult(CreateSagaStatus.Created, SagaId: saga.Id);
@@ -128,11 +136,13 @@ public sealed class SagaService : ISagaService
         var highestIndex = progress.HighestCompletedLessonId.HasValue
             ? orderedLessons.FindIndex(lesson => lesson.Id == progress.HighestCompletedLessonId.Value)
             : -1;
+        var wasCompleted = progress.CompletedAtUtc.HasValue;
+        var completedNewLesson = lessonIndex > highestIndex;
 
         progress.LastStudiedLessonId = lessonId;
         progress.LastStudiedAtUtc = now;
 
-        if (lessonIndex > highestIndex)
+        if (completedNewLesson)
         {
             progress.HighestCompletedLessonId = lessonId;
             highestIndex = lessonIndex;
@@ -145,6 +155,20 @@ public sealed class SagaService : ISagaService
         else
         {
             progress.CompletedAtUtc = null;
+        }
+
+        if (completedNewLesson)
+        {
+            await _activityLogRepository.AddAsync(
+                CreateActivityLog(userId, saga.Title, ActivityType.SagaLessonCompleted, now),
+                ct);
+        }
+
+        if (!wasCompleted && highestIndex == orderedLessons.Count - 1)
+        {
+            await _activityLogRepository.AddAsync(
+                CreateActivityLog(userId, saga.Title, ActivityType.SagaCompleted, now),
+                ct);
         }
 
         await _sagaRepository.SaveChangesAsync(ct);
@@ -314,5 +338,22 @@ public sealed class SagaService : ISagaService
     private static string? TrimToNull(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static ActivityLog CreateActivityLog(
+        Guid userId,
+        string sagaTitle,
+        ActivityType activityType,
+        DateTime occurredAtUtc)
+    {
+        return new ActivityLog
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Type = activityType,
+            Metadata = sagaTitle.Trim(),
+            OccurredAtUtc = occurredAtUtc,
+            CreatedAtUtc = occurredAtUtc
+        };
     }
 }

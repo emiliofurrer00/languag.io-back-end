@@ -512,6 +512,7 @@ public sealed class FeedRepository : IFeedRepository
         string? metadata)
     {
         var safeDeckTitle = string.IsNullOrWhiteSpace(deckTitle) ? "a deck" : deckTitle.Trim();
+        var safeSagaTitle = string.IsNullOrWhiteSpace(metadata) ? "a saga" : metadata.Trim();
 
         return type switch
         {
@@ -519,6 +520,9 @@ public sealed class FeedRepository : IFeedRepository
             ActivityType.FirstDeckCreated => ("created their first deck", safeDeckTitle),
             ActivityType.DeckStudySessionCompleted => ("studied", safeDeckTitle),
             ActivityType.DeckMastered => ("mastered", safeDeckTitle),
+            ActivityType.SagaCreated => ("created saga", safeSagaTitle),
+            ActivityType.SagaLessonCompleted => ("completed a lesson in", safeSagaTitle),
+            ActivityType.SagaCompleted => ("completed saga", safeSagaTitle),
             ActivityType.DayStreakReached => (
                 streakDays is > 0 ? $"reached a {streakDays}-day streak in" : "reached a study streak in",
                 "their studies"),
