@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AiDeckGenerationJob> AiDeckGenerationJobs => Set<AiDeckGenerationJob>();
+    public DbSet<AiSagaGenerationJob> AiSagaGenerationJobs => Set<AiSagaGenerationJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -257,6 +258,41 @@ public class AppDbContext : DbContext
 
             builder.HasIndex(job => new { job.Status, job.CreatedAtUtc });
             builder.HasIndex(job => new { job.UserId, job.CreatedAtUtc });
+        });
+
+        modelBuilder.Entity<AiSagaGenerationJob>(builder =>
+        {
+            builder.HasKey(job => job.Id);
+            builder.Property(job => job.Prompt).IsRequired().HasMaxLength(1000);
+            builder.Property(job => job.TargetLanguage).HasMaxLength(80);
+            builder.Property(job => job.NativeLanguage).HasMaxLength(80);
+            builder.Property(job => job.Difficulty).IsRequired().HasMaxLength(40);
+            builder.Property(job => job.ErrorMessage).HasMaxLength(2000);
+            builder.Property(job => job.Status).IsRequired();
+            builder.Property(job => job.AudioStatus)
+                .IsRequired()
+                .HasDefaultValue(AiSagaAudioStatus.NotRequested);
+            builder.Property(job => job.IncludeAudio).HasDefaultValue(false);
+            builder.Property(job => job.RequestedMultiChoiceCountPerDeck).HasDefaultValue(0);
+            builder.Property(job => job.UsageWeekStartUtc).IsRequired();
+            builder.Property(job => job.CreatedAtUtc).IsRequired();
+            builder.Property(job => job.RetryCount).HasDefaultValue(0);
+
+            builder.HasOne(job => job.User)
+                   .WithMany(user => user.AiSagaGenerationJobs)
+                   .HasForeignKey(job => job.UserId)
+                   .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne(job => job.CreatedSaga)
+                   .WithMany()
+                   .HasForeignKey(job => job.CreatedSagaId)
+                   .OnDelete(DeleteBehavior.SetNull)
+                   .IsRequired(false);
+
+            builder.HasIndex(job => new { job.Status, job.CreatedAtUtc });
+            builder.HasIndex(job => new { job.UserId, job.CreatedAtUtc });
+            builder.HasIndex(job => new { job.UserId, job.UsageWeekStartUtc })
+                .IsUnique();
         });
 
         modelBuilder.Entity<Saga>(builder =>
