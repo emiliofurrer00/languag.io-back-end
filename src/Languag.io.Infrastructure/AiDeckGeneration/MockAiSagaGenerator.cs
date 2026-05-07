@@ -10,14 +10,17 @@ public class MockAiSagaGenerator : IAiSagaGenerator
         AiSagaGenerationJob job,
         CancellationToken ct = default)
     {
-        var language = string.IsNullOrWhiteSpace(job.TargetLanguage)
+        var targetLanguage = string.IsNullOrWhiteSpace(job.TargetLanguage)
             ? "Language"
             : job.TargetLanguage;
+        var nativeLanguage = string.IsNullOrWhiteSpace(job.NativeLanguage)
+            ? "English"
+            : job.NativeLanguage;
         var chapters = Enumerable.Range(1, Math.Min(job.RequestedDeckCount, 3))
             .Select(chapterIndex => new GeneratedSagaChapterDto
             {
-                Title = $"Mock {language} Chapter {chapterIndex}",
-                Description = $"Mock chapter {chapterIndex} generated for local development."
+                Title = $"Mock {nativeLanguage} Chapter {chapterIndex}",
+                Description = $"Mock {nativeLanguage} chapter {chapterIndex} generated for local development."
             })
             .ToList();
 
@@ -26,16 +29,16 @@ public class MockAiSagaGenerator : IAiSagaGenerator
             var chapter = chapters[(deckIndex - 1) * chapters.Count / job.RequestedDeckCount];
             chapter.Lessons.Add(new GeneratedSagaLessonDto
             {
-                Title = $"Mock lesson {deckIndex}",
-                Description = $"Practice set {deckIndex} in the generated saga.",
-                Deck = CreateDeck(job, language, deckIndex)
+                Title = $"Mock {nativeLanguage} lesson {deckIndex}",
+                Description = $"Mock {nativeLanguage} practice set {deckIndex} in the generated saga.",
+                Deck = CreateDeck(job, targetLanguage, nativeLanguage, deckIndex)
             });
         }
 
         return Task.FromResult(new GeneratedSagaDto
         {
-            Title = $"Mock {language} Saga",
-            Description = "A mock saga generated for local development.",
+            Title = $"Mock {nativeLanguage} Saga",
+            Description = $"A mock {nativeLanguage} saga generated for local development.",
             Category = "Languages",
             Chapters = chapters
         });
@@ -43,7 +46,8 @@ public class MockAiSagaGenerator : IAiSagaGenerator
 
     private static GeneratedDeckDto CreateDeck(
         AiSagaGenerationJob job,
-        string language,
+        string targetLanguage,
+        string nativeLanguage,
         int deckIndex)
     {
         var multiChoiceCount = Math.Clamp(
@@ -53,8 +57,8 @@ public class MockAiSagaGenerator : IAiSagaGenerator
 
         return new GeneratedDeckDto
         {
-            Title = $"Mock {language} Deck {deckIndex}",
-            Description = $"Mock generated deck {deckIndex}.",
+            Title = $"Mock {nativeLanguage} Deck {deckIndex}",
+            Description = $"Mock {nativeLanguage} generated deck {deckIndex}.",
             Category = "Languages",
             Cards = Enumerable.Range(1, job.RequestedCardsPerDeck)
                 .Select(cardIndex =>
@@ -64,10 +68,10 @@ public class MockAiSagaGenerator : IAiSagaGenerator
                     {
                         Type = isMultiChoice ? CardTypes.MultiChoice : CardTypes.Flashcard,
                         FrontText = isMultiChoice
-                            ? $"What does mock saga phrase {deckIndex}.{cardIndex} mean?"
-                            : $"Mock saga front {deckIndex}.{cardIndex}",
+                            ? $"What does mock {targetLanguage} saga phrase {deckIndex}.{cardIndex} mean?"
+                            : $"Mock {targetLanguage} saga front {deckIndex}.{cardIndex}",
                         BackText = $"Mock saga back {deckIndex}.{cardIndex}",
-                        TtsText = $"Mock saga front {deckIndex}.{cardIndex}",
+                        TtsText = $"Mock {targetLanguage} saga front {deckIndex}.{cardIndex}",
                         ExampleSentence = $"Mock saga example sentence {deckIndex}.{cardIndex}.",
                         Choices = isMultiChoice
                             ? CreateMockChoices(deckIndex, cardIndex)

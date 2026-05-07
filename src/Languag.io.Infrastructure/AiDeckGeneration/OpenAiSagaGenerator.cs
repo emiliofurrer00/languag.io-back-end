@@ -82,8 +82,10 @@ public class OpenAiSagaGenerator : IAiSagaGenerator
                     Native language: {nativeLanguage}.
                     User prompt: {job.Prompt}
 
+                    Write all saga, chapter, lesson, and deck titles, descriptions, and categories in {nativeLanguage}.
+                    Treat chapter and lesson titles/descriptions as learner navigation text, not target-language practice.
                     Make the saga progress from easier to harder concepts, with each chapter/lesson/deck building on prior lessons.
-                    For each lesson, put a short lesson title and description, then a deck for that lesson.
+                    For each lesson, put a short native-language lesson title and description, then a deck for that lesson.
                     Use type "flashcard" for flashcards and "multi-choice" for multi-choice cards.
                     For flashcards, put the target-language phrase on frontText, the native-language meaning on backText, and an empty choices array.
                     For multi-choice cards, put the question on frontText, the correct answer on backText, and exactly 4 native-language choices with exactly one isCorrect true.
