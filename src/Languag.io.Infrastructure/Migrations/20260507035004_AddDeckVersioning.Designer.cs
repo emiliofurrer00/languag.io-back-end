@@ -3,6 +3,7 @@ using System;
 using Languag.io.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Languag.io.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260507035004_AddDeckVersioning")]
+    partial class AddDeckVersioning
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -139,95 +142,6 @@ namespace Languag.io.Infrastructure.Migrations
                     b.HasIndex("UserId", "CreatedAtUtc");
 
                     b.ToTable("AiDeckGenerationJobs");
-                });
-
-            modelBuilder.Entity("Languag.io.Domain.Entities.AiSagaGenerationJob", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("AudioStatus")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedSagaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Difficulty")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<bool>("IncludeAudio")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("NativeLanguage")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Prompt")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<int>("RequestedCardsPerDeck")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RequestedDeckCount")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RequestedMultiChoiceCountPerDeck")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<int>("RetryCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTime?>("StartedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TargetLanguage")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<DateTime>("UsageWeekStartUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedSagaId");
-
-                    b.HasIndex("Status", "CreatedAtUtc");
-
-                    b.HasIndex("UserId", "CreatedAtUtc");
-
-                    b.HasIndex("UserId", "UsageWeekStartUtc")
-                        .IsUnique();
-
-                    b.ToTable("AiSagaGenerationJobs");
                 });
 
             modelBuilder.Entity("Languag.io.Domain.Entities.AudioAsset", b =>
@@ -1064,24 +978,6 @@ namespace Languag.io.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Languag.io.Domain.Entities.AiSagaGenerationJob", b =>
-                {
-                    b.HasOne("Languag.io.Domain.Entities.Saga", "CreatedSaga")
-                        .WithMany()
-                        .HasForeignKey("CreatedSagaId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Languag.io.Domain.Entities.User", "User")
-                        .WithMany("AiSagaGenerationJobs")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CreatedSaga");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Languag.io.Domain.Entities.Card", b =>
                 {
                     b.HasOne("Languag.io.Domain.Entities.Deck", "Deck")
@@ -1461,8 +1357,6 @@ namespace Languag.io.Infrastructure.Migrations
                     b.Navigation("ActivityLogs");
 
                     b.Navigation("AiDeckGenerationJobs");
-
-                    b.Navigation("AiSagaGenerationJobs");
 
                     b.Navigation("AuthoredNotifications");
 

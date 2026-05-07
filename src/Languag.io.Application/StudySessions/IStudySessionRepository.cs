@@ -5,6 +5,16 @@ namespace Languag.io.Application.StudySessions;
 public interface IStudySessionRepository
 {
     Task<bool> CanAccessDeckAsync(Guid deckId, Guid userId, CancellationToken ct = default);
+    Task<DeckStudyVersionReference?> GetDeckVersionForStudyAsync(
+        Guid deckId,
+        Guid? deckVersionId,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<DeckVersionCardStudyReference>> GetDeckVersionCardReferencesAsync(
+        Guid deckVersionId,
+        IReadOnlyCollection<Guid> submittedCardIds,
+        CancellationToken ct = default);
+
     Task<bool> DeckContainsCardsAsync(Guid deckId, IReadOnlyCollection<Guid> cardIds, CancellationToken ct = default);
     Task<bool> UserHasStudySessionsAsync(Guid userId, CancellationToken ct = default);
     Task<IReadOnlyList<CardReviewState>> GetReviewStatesAsync(

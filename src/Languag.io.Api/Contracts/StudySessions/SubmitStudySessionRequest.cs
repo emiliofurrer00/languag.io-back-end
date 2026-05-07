@@ -4,6 +4,8 @@ namespace Languag.io.Api.Contracts.StudySessions;
 
 public sealed class SubmitStudySessionRequest
 {
+    public Guid? DeckVersionId { get; set; }
+
     [Range(0, 100)]
     public decimal PercentageCorrect { get; set; }
 

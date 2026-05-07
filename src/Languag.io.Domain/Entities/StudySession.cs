@@ -5,6 +5,8 @@ public class StudySession
     public Guid Id { get; set; }
     public Guid DeckId { get; set; }
     public Deck Deck { get; set; } = null!;
+    public Guid? DeckVersionId { get; set; }
+    public DeckVersion? DeckVersion { get; set; }
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
     public DateTime CreatedAtUtc { get; set; }

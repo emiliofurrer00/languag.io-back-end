@@ -45,6 +45,11 @@ public class DeckRepository : IDeckRepository
         await _dbContext.Decks.AddAsync(deck, ct);
     }
 
+    public async Task AddDeckVersionAsync(DeckVersion deckVersion, CancellationToken ct = default)
+    {
+        await _dbContext.DeckVersions.AddAsync(deckVersion, ct);
+    }
+
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         try

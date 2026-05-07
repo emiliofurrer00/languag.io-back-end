@@ -5,6 +5,8 @@ namespace Languag.io.Application.StudySessions;
 public sealed record StudyPlanCardDto(
     Guid CardId,
     Guid DeckId,
+    Guid DeckVersionId,
+    int DeckVersionNumber,
     string Type,
     string FrontText,
     string BackText,
