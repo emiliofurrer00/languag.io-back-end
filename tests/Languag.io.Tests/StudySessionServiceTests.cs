@@ -19,6 +19,7 @@ public sealed class StudySessionServiceTests
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
                 deckId,
+                null,
                 100m,
                 [
                     new SubmitStudySessionResponseCommand(cardId, true)
@@ -30,6 +31,7 @@ public sealed class StudySessionServiceTests
         Assert.True(repository.SaveChangesCalled);
         Assert.NotNull(repository.AddedStudySession);
         Assert.Equal(deckId, repository.AddedStudySession!.DeckId);
+        Assert.Equal(repository.DefaultDeckVersionId, repository.AddedStudySession.DeckVersionId);
         Assert.Equal(userId, repository.AddedStudySession.UserId);
         Assert.Equal(100m, repository.AddedStudySession.PercentageCorrect);
 
@@ -37,6 +39,7 @@ public sealed class StudySessionServiceTests
         Assert.Equal(result.StudySessionId, response.StudySessionId);
         Assert.Equal(deckId, response.DeckId);
         Assert.Equal(cardId, response.CardId);
+        Assert.Equal(cardId, response.DeckVersionCardId);
         Assert.Equal(userId, response.UserId);
         Assert.True(response.WasCorrect);
 
@@ -73,6 +76,7 @@ public sealed class StudySessionServiceTests
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
                 Guid.NewGuid(),
+                null,
                 80m,
                 [
                     new SubmitStudySessionResponseCommand(Guid.NewGuid(), true)
@@ -97,6 +101,7 @@ public sealed class StudySessionServiceTests
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
                 Guid.NewGuid(),
+                null,
                 50m,
                 [
                     new SubmitStudySessionResponseCommand(Guid.NewGuid(), false)
@@ -121,6 +126,7 @@ public sealed class StudySessionServiceTests
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
                 Guid.NewGuid(),
+                null,
                 50m,
                 [
                     new SubmitStudySessionResponseCommand(Guid.NewGuid(), false)
@@ -159,6 +165,7 @@ public sealed class StudySessionServiceTests
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
                 deckId,
+                null,
                 0m,
                 [
                     new SubmitStudySessionResponseCommand(cardId, false)
@@ -178,8 +185,10 @@ public sealed class StudySessionServiceTests
 
     private sealed class CapturingStudySessionRepository : IStudySessionRepository
     {
+        public Guid DefaultDeckVersionId { get; } = Guid.NewGuid();
         public bool CanAccessDeckResult { get; init; } = true;
         public bool DeckContainsCardsResult { get; init; } = true;
+        public bool DeckVersionExistsResult { get; init; } = true;
         public bool UserHasStudySessionsResult { get; init; }
         public bool SaveChangesCalled { get; private set; }
         public StudySession? AddedStudySession { get; private set; }
@@ -189,6 +198,34 @@ public sealed class StudySessionServiceTests
         public Task<bool> CanAccessDeckAsync(Guid deckId, Guid userId, CancellationToken ct = default)
         {
             return Task.FromResult(CanAccessDeckResult);
+        }
+
+        public Task<DeckStudyVersionReference?> GetDeckVersionForStudyAsync(
+            Guid deckId,
+            Guid? deckVersionId,
+            CancellationToken ct = default)
+        {
+            return Task.FromResult<DeckStudyVersionReference?>(
+                DeckVersionExistsResult
+                    ? new DeckStudyVersionReference(deckVersionId ?? DefaultDeckVersionId, VersionNumber: 1)
+                    : null);
+        }
+
+        public Task<IReadOnlyList<DeckVersionCardStudyReference>> GetDeckVersionCardReferencesAsync(
+            Guid deckVersionId,
+            IReadOnlyCollection<Guid> submittedCardIds,
+            CancellationToken ct = default)
+        {
+            return Task.FromResult<IReadOnlyList<DeckVersionCardStudyReference>>(
+                DeckContainsCardsResult
+                    ? submittedCardIds
+                        .Distinct()
+                        .Select(cardId => new DeckVersionCardStudyReference(
+                            DeckVersionCardId: cardId,
+                            OriginalCardId: cardId,
+                            ReviewCardId: cardId))
+                        .ToList()
+                    : []);
         }
 
         public Task<bool> DeckContainsCardsAsync(
