@@ -74,15 +74,15 @@ public class OpenAiSagaGenerator : IAiSagaGenerator
                 {
                     role = "user",
                     content = $"""
-                    Create a {job.Difficulty} language-learning saga with exactly {job.RequestedDeckCount} ordered decks.
+                    Create a {job.Difficulty} language-learning saga with exactly {job.RequestedDeckCount} ordered stages.
                     Each deck must contain exactly {job.RequestedCardsPerDeck} cards.
                     In each deck, include exactly {multiChoiceCount} multi-choice cards and exactly {flashcardCount} flashcard cards.
-                    Group the decks into 1 to 3 ordered chapters. The total number of lessons across all chapters must equal {job.RequestedDeckCount}.
+                    Return exactly {job.RequestedDeckCount} chapters. Each chapter must contain exactly one lesson, and that lesson must contain exactly one deck.
                     Target language: {targetLanguage}.
                     Native language: {nativeLanguage}.
                     User prompt: {job.Prompt}
 
-                    Make the saga progress from easier to harder concepts, with each lesson/deck building on prior lessons.
+                    Make the saga progress from easier to harder concepts, with each chapter/lesson/deck building on prior lessons.
                     For each lesson, put a short lesson title and description, then a deck for that lesson.
                     Use type "flashcard" for flashcards and "multi-choice" for multi-choice cards.
                     For flashcards, put the target-language phrase on frontText, the native-language meaning on backText, and an empty choices array.
@@ -112,8 +112,8 @@ public class OpenAiSagaGenerator : IAiSagaGenerator
                             chapters = new
                             {
                                 type = "array",
-                                minItems = 1,
-                                maxItems = Math.Min(3, job.RequestedDeckCount),
+                                minItems = job.RequestedDeckCount,
+                                maxItems = job.RequestedDeckCount,
                                 items = new
                                 {
                                     type = "object",
@@ -127,7 +127,7 @@ public class OpenAiSagaGenerator : IAiSagaGenerator
                                         {
                                             type = "array",
                                             minItems = 1,
-                                            maxItems = job.RequestedDeckCount,
+                                            maxItems = 1,
                                             items = new
                                             {
                                                 type = "object",
