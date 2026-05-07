@@ -67,7 +67,13 @@ public class AuthAndDeckServiceTests
 
         Assert.Equal(deckId, repository.AddedDeck!.Id);
         Assert.Equal(ownerId, repository.AddedDeck.OwnerId);
+        Assert.Equal(1, repository.AddedDeck.CurrentVersionNumber);
         Assert.Single(repository.AddedDeck.Cards);
+        var version = Assert.Single(repository.AddedDeck.Versions);
+        Assert.Equal(deckId, version.DeckId);
+        Assert.Equal(1, version.VersionNumber);
+        Assert.Equal("Spanish Basics", version.Title);
+        Assert.Single(version.Cards);
         Assert.Equal("Hola, que tal?", repository.AddedDeck.Cards[0].ExampleSentence);
         Assert.Equal(3, repository.AddedDeck.Cards[0].Order);
         Assert.Equal(repository.AddedDeck.Id, repository.AddedDeck.Cards[0].DeckId);
@@ -281,6 +287,16 @@ public class AuthAndDeckServiceTests
         Assert.Equal("thanks", addedCard.BackText);
         Assert.Equal("Muchas gracias.", addedCard.ExampleSentence);
         Assert.Equal(1, addedCard.Order);
+
+        var addedVersion = Assert.Single(repository.AddedDeckVersions);
+        Assert.Equal(deckId, addedVersion.DeckId);
+        Assert.Equal(2, addedVersion.VersionNumber);
+        Assert.Equal("Spanish Basics Updated", addedVersion.Title);
+        Assert.Equal(2, repository.DeckForUpdate.CurrentVersionNumber);
+        Assert.Collection(
+            addedVersion.Cards.OrderBy(card => card.Order),
+            card => Assert.Equal(addedCard.Id, card.OriginalCardId),
+            card => Assert.Equal(retainedCardId, card.OriginalCardId));
     }
 
     [Fact]
@@ -514,6 +530,7 @@ public class AuthAndDeckServiceTests
         public Deck? AddedDeck { get; private set; }
         public Deck? DeckForUpdate { get; init; }
         public List<Card> AddedCards { get; } = [];
+        public List<DeckVersion> AddedDeckVersions { get; } = [];
         public List<Card> RemovedCards { get; } = [];
         public List<CardChoice> RemovedChoices { get; } = [];
         public bool SaveChangesCalled { get; private set; }
@@ -537,6 +554,12 @@ public class AuthAndDeckServiceTests
         public Task AddAsync(Deck deck, CancellationToken ct = default)
         {
             AddedDeck = deck;
+            return Task.CompletedTask;
+        }
+
+        public Task AddDeckVersionAsync(DeckVersion deckVersion, CancellationToken ct = default)
+        {
+            AddedDeckVersions.Add(deckVersion);
             return Task.CompletedTask;
         }
 

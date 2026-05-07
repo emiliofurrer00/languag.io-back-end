@@ -21,9 +21,18 @@ public sealed class StudySessionRepositoryTests
         var lapsedCard = CreateCard(deck, "lapsed", 1);
         var newCard = CreateCard(deck, "new", 2);
         var futureCard = CreateCard(deck, "future", 3);
+        var deckVersion = DeckVersion.CreateSnapshot(
+            deck,
+            [dueCard, lapsedCard, newCard, futureCard],
+            versionNumber: 1,
+            createdAtUtc: now,
+            createdByUserId: user.Id);
+        var versionCardsByOriginalCardId = deckVersion.Cards
+            .ToDictionary(card => card.OriginalCardId!.Value);
         context.Users.Add(user);
         context.Decks.Add(deck);
         context.Cards.AddRange(dueCard, lapsedCard, newCard, futureCard);
+        context.DeckVersions.Add(deckVersion);
         context.CardReviewStates.AddRange(
             new CardReviewState
             {
@@ -74,24 +83,25 @@ public sealed class StudySessionRepositoryTests
             studyPlan,
             card =>
             {
-                Assert.Equal(dueCard.Id, card.CardId);
+                Assert.Equal(versionCardsByOriginalCardId[dueCard.Id].Id, card.CardId);
+                Assert.Equal(deckVersion.Id, card.DeckVersionId);
                 Assert.Equal("Due", card.Reason);
                 Assert.True(card.IsDue);
             },
             card =>
             {
-                Assert.Equal(lapsedCard.Id, card.CardId);
+                Assert.Equal(versionCardsByOriginalCardId[lapsedCard.Id].Id, card.CardId);
                 Assert.Equal("Lapsed", card.Reason);
             },
             card =>
             {
-                Assert.Equal(newCard.Id, card.CardId);
+                Assert.Equal(versionCardsByOriginalCardId[newCard.Id].Id, card.CardId);
                 Assert.Equal("New", card.Reason);
                 Assert.True(card.IsNew);
             },
             card =>
             {
-                Assert.Equal(futureCard.Id, card.CardId);
+                Assert.Equal(versionCardsByOriginalCardId[futureCard.Id].Id, card.CardId);
                 Assert.Equal("Review", card.Reason);
             });
     }
