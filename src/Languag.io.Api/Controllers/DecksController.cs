@@ -143,6 +143,7 @@ public class DecksController : ControllerBase
 
         var command = new SubmitStudySessionCommand(
             id,
+            request.DeckVersionId,
             request.PercentageCorrect,
             request.Responses
                 .Select(response => new SubmitStudySessionResponseCommand(

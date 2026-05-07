@@ -64,12 +64,14 @@ public class AiDeckGenerationProcessor
                     : generatedDeck.Category.Trim(),
                 Color = "teal",
                 Visibility = DeckVisibility.Private,
+                CurrentVersionNumber = 1,
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now,
                 Cards = generatedDeck.Cards
                     .Select((card, index) => CreateCard(card, index, now))
                     .ToList()
             };
+            deck.Versions.Add(DeckVersion.CreateSnapshot(deck, deck.Cards, deck.CurrentVersionNumber, now, job.UserId));
 
             _dbContext.Decks.Add(deck);
             _dbContext.ActivityLogs.Add(CreateActivityLog(job.UserId, deck.Id, ActivityType.DeckCreated, now));
@@ -216,6 +218,7 @@ public class AiDeckGenerationProcessor
             .ToListAsync(ct);
 
         var attachedReadyAssetCount = 0;
+        var attachedAssetCount = 0;
 
         foreach (var card in cards)
         {
@@ -231,6 +234,7 @@ public class AiDeckGenerationProcessor
             }
 
             card.FrontAudioAssetId = audioAsset.Id;
+            attachedAssetCount += 1;
 
             if (audioAsset.Status == AudioAssetStatus.Ready)
             {
@@ -238,11 +242,46 @@ public class AiDeckGenerationProcessor
             }
         }
 
+        if (attachedAssetCount > 0)
+        {
+            await AddDeckAudioVersionAsync(deckId, jobId, ct);
+        }
+
         await _dbContext.SaveChangesAsync(ct);
         await MarkAudioStatusAsync(
             jobId,
             attachedReadyAssetCount > 0 ? AiDeckAudioStatus.Ready : AiDeckAudioStatus.Failed,
             ct);
+    }
+
+    private async Task AddDeckAudioVersionAsync(
+        Guid deckId,
+        Guid jobId,
+        CancellationToken ct)
+    {
+        var job = await _dbContext.AiDeckGenerationJobs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == jobId, ct);
+
+        var deck = await _dbContext.Decks
+            .Include(candidate => candidate.Cards)
+                .ThenInclude(card => card.Choices)
+            .FirstOrDefaultAsync(candidate => candidate.Id == deckId, ct);
+
+        if (deck is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        deck.CurrentVersionNumber = Math.Max(1, deck.CurrentVersionNumber + 1);
+        deck.UpdatedAtUtc = now;
+        _dbContext.DeckVersions.Add(DeckVersion.CreateSnapshot(
+            deck,
+            deck.Cards,
+            deck.CurrentVersionNumber,
+            now,
+            job?.UserId));
     }
 
     private async Task MarkAudioStatusAsync(

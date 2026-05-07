@@ -11,6 +11,7 @@ public interface IDeckRepository
     Task<bool> UserHasDecksAsync(Guid ownerId, CancellationToken ct = default);
 
     Task AddAsync(Deck deck, CancellationToken ct = default);
+    Task AddDeckVersionAsync(DeckVersion deckVersion, CancellationToken ct = default);
     Task SaveChangesAsync(CancellationToken ct = default);
     Task<DeckDto?> GetDeckByIdAsync(Guid deckId, Guid? ownerId, CancellationToken ct = default);
     Task<Deck?> GetOwnedDeckByIdForUpdateAsync(Guid deckId, Guid ownerId, CancellationToken ct = default);

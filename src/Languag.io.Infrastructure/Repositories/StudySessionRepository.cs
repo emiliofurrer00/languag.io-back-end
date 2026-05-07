@@ -25,6 +25,72 @@ public sealed class StudySessionRepository : IStudySessionRepository
                 ct);
     }
 
+    public Task<DeckStudyVersionReference?> GetDeckVersionForStudyAsync(
+        Guid deckId,
+        Guid? deckVersionId,
+        CancellationToken ct = default)
+    {
+        var query = _dbContext.DeckVersions
+            .AsNoTracking()
+            .Where(version => version.DeckId == deckId);
+
+        query = deckVersionId.HasValue
+            ? query.Where(version => version.Id == deckVersionId.Value)
+            : query.Where(version => version.VersionNumber == version.Deck.CurrentVersionNumber);
+
+        return query
+            .Select(version => new DeckStudyVersionReference(version.Id, version.VersionNumber))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<DeckVersionCardStudyReference>> GetDeckVersionCardReferencesAsync(
+        Guid deckVersionId,
+        IReadOnlyCollection<Guid> submittedCardIds,
+        CancellationToken ct = default)
+    {
+        var requestedCardIds = submittedCardIds.Distinct().ToList();
+        if (requestedCardIds.Count == 0)
+        {
+            return [];
+        }
+
+        var versionCards = await _dbContext.DeckVersionCards
+            .AsNoTracking()
+            .Where(card => card.DeckVersionId == deckVersionId &&
+                (requestedCardIds.Contains(card.Id) ||
+                    (card.OriginalCardId.HasValue && requestedCardIds.Contains(card.OriginalCardId.Value))))
+            .Select(card => new
+            {
+                card.Id,
+                card.OriginalCardId
+            })
+            .ToListAsync(ct);
+
+        var originalCardIds = versionCards
+            .Select(card => card.OriginalCardId)
+            .Where(cardId => cardId.HasValue)
+            .Select(cardId => cardId!.Value)
+            .Distinct()
+            .ToList();
+        var existingOriginalCardIds = originalCardIds.Count == 0
+            ? []
+            : (await _dbContext.Cards
+                .AsNoTracking()
+                .Where(card => originalCardIds.Contains(card.Id))
+                .Select(card => card.Id)
+                .ToListAsync(ct))
+            .ToHashSet();
+
+        return versionCards
+            .Select(card => new DeckVersionCardStudyReference(
+                card.Id,
+                card.OriginalCardId,
+                card.OriginalCardId.HasValue && existingOriginalCardIds.Contains(card.OriginalCardId.Value)
+                    ? card.OriginalCardId
+                    : null))
+            .ToList();
+    }
+
     public async Task<bool> DeckContainsCardsAsync(
         Guid deckId,
         IReadOnlyCollection<Guid> cardIds,
@@ -82,13 +148,22 @@ public sealed class StudySessionRepository : IStudySessionRepository
         int limit,
         CancellationToken ct = default)
     {
-        var cards = await _dbContext.Cards
+        var deckVersion = await GetDeckVersionForStudyAsync(deckId, deckVersionId: null, ct);
+        if (deckVersion is null)
+        {
+            return [];
+        }
+
+        var cards = await _dbContext.DeckVersionCards
             .AsNoTracking()
-            .Where(card => card.DeckId == deckId)
+            .Where(card => card.DeckVersionId == deckVersion.DeckVersionId)
             .OrderBy(card => card.Order)
             .Select(card => new StudyPlanCard(
                 card.Id,
-                card.DeckId,
+                deckId,
+                deckVersion.DeckVersionId,
+                deckVersion.VersionNumber,
+                card.OriginalCardId,
                 card.Type,
                 card.FrontText,
                 card.BackText,
@@ -105,7 +180,11 @@ public sealed class StudySessionRepository : IStudySessionRepository
                 card.FrontAudioAsset != null ? card.FrontAudioAsset.Status.ToString() : null))
             .ToListAsync(ct);
 
-        var cardIds = cards.Select(card => card.Id).ToList();
+        var cardIds = cards
+            .Select(card => card.ReviewCardId)
+            .Where(cardId => cardId.HasValue)
+            .Select(cardId => cardId!.Value)
+            .ToList();
         var states = await _dbContext.CardReviewStates
             .AsNoTracking()
             .Where(state => state.UserId == userId &&
@@ -114,7 +193,10 @@ public sealed class StudySessionRepository : IStudySessionRepository
             .ToDictionaryAsync(state => state.CardId, ct);
 
         return cards
-            .Select(card => MapStudyPlanCard(card, states.GetValueOrDefault(card.Id), now))
+            .Select(card => MapStudyPlanCard(
+                card,
+                card.ReviewCardId.HasValue ? states.GetValueOrDefault(card.ReviewCardId.Value) : null,
+                now))
             .OrderBy(card => GetStudyPlanPriority(card))
             .ThenBy(card => card.DueAtUtc ?? DateTime.MaxValue)
             .ThenBy(card => card.Order)
@@ -130,11 +212,21 @@ public sealed class StudySessionRepository : IStudySessionRepository
     {
         var decks = await _dbContext.Decks
             .AsNoTracking()
-            .Include(deck => deck.Cards)
             .Where(deck => deck.OwnerId == userId || deck.Visibility == DeckVisibility.Public)
+            .Select(deck => new RecommendationDeck(
+                deck.Id,
+                deck.Title,
+                deck.Category,
+                deck.Description,
+                deck.Color,
+                deck.Versions
+                    .Where(version => version.VersionNumber == deck.CurrentVersionNumber)
+                    .SelectMany(version => version.Cards)
+                    .Select(card => new RecommendationCard(card.Id, card.OriginalCardId))
+                    .ToList()))
             .ToListAsync(ct);
 
-        var deckIds = decks.Select(deck => deck.Id).ToList();
+        var deckIds = decks.Select(deck => deck.DeckId).ToList();
         var states = await _dbContext.CardReviewStates
             .AsNoTracking()
             .Where(state => state.UserId == userId && deckIds.Contains(state.DeckId))
@@ -145,7 +237,7 @@ public sealed class StudySessionRepository : IStudySessionRepository
             .ToDictionary(group => group.Key, group => group.ToList());
 
         return decks
-            .Select(deck => MapRecommendation(deck, statesByDeckId.GetValueOrDefault(deck.Id) ?? [], now))
+            .Select(deck => MapRecommendation(deck, statesByDeckId.GetValueOrDefault(deck.DeckId) ?? [], now))
             .Where(recommendation => recommendation.TotalCards > 0)
             .OrderByDescending(recommendation => recommendation.PriorityScore)
             .ThenBy(recommendation => recommendation.NextDueAtUtc ?? DateTime.MaxValue)
@@ -176,6 +268,8 @@ public sealed class StudySessionRepository : IStudySessionRepository
         return new StudyPlanCardDto(
             card.Id,
             card.DeckId,
+            card.DeckVersionId,
+            card.DeckVersionNumber,
             card.Type,
             card.FrontText,
             card.BackText,
@@ -240,11 +334,15 @@ public sealed class StudySessionRepository : IStudySessionRepository
     }
 
     private static DeckStudyRecommendationDto MapRecommendation(
-        Deck deck,
+        RecommendationDeck deck,
         IReadOnlyCollection<CardReviewState> states,
         DateTime now)
     {
-        var cardIds = deck.Cards.Select(card => card.Id).ToHashSet();
+        var cardIds = deck.Cards
+            .Select(card => card.ReviewCardId)
+            .Where(cardId => cardId.HasValue)
+            .Select(cardId => cardId!.Value)
+            .ToHashSet();
         var deckStates = states
             .Where(state => cardIds.Contains(state.CardId))
             .ToArray();
@@ -277,7 +375,7 @@ public sealed class StudySessionRepository : IStudySessionRepository
             now);
 
         return new DeckStudyRecommendationDto(
-            deck.Id,
+            deck.DeckId,
             deck.Title,
             deck.Category ?? string.Empty,
             deck.Description,
@@ -323,9 +421,24 @@ public sealed class StudySessionRepository : IStudySessionRepository
         return decimal.Round(state.CorrectReviews * 100m / state.TotalReviews, 2);
     }
 
+    private sealed record RecommendationDeck(
+        Guid DeckId,
+        string Title,
+        string? Category,
+        string? Description,
+        string? Color,
+        List<RecommendationCard> Cards);
+
+    private sealed record RecommendationCard(
+        Guid DeckVersionCardId,
+        Guid? ReviewCardId);
+
     private sealed record StudyPlanCard(
         Guid Id,
         Guid DeckId,
+        Guid DeckVersionId,
+        int DeckVersionNumber,
+        Guid? ReviewCardId,
         string Type,
         string FrontText,
         string BackText,

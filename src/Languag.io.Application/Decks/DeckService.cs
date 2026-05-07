@@ -41,6 +41,7 @@ public class DeckService : IDeckService
             Category = command.Category,
             Color = command.Color,
             Visibility = command.Visibility,
+            CurrentVersionNumber = 1,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
         };
@@ -50,6 +51,12 @@ public class DeckService : IDeckService
             .ToArray();
 
         newDeck.Cards = cards.ToList();
+        newDeck.Versions.Add(DeckVersion.CreateSnapshot(
+            newDeck,
+            newDeck.Cards,
+            newDeck.CurrentVersionNumber,
+            now,
+            ownerId));
 
 
         await _deckRepository.AddAsync(newDeck, ct);
@@ -89,6 +96,7 @@ public class DeckService : IDeckService
 
         var existingCardsById = deck.Cards.ToDictionary(card => card.Id);
         var retainedCardIds = new HashSet<Guid>();
+        var versionCards = new List<Card>();
 
         foreach (var dto in command.Cards.OrderBy(c => c.Order))
         {
@@ -112,10 +120,13 @@ public class DeckService : IDeckService
                 existingCard.Order = dto.Order;
                 existingCard.UpdatedAtUtc = now;
                 SyncChoices(existingCard, dto.Choices);
+                versionCards.Add(existingCard);
                 continue;
             }
 
-            await _deckRepository.AddCardAsync(CreateCard(dto, deck.Id, now), ct);
+            var newCard = CreateCard(dto, deck.Id, now);
+            await _deckRepository.AddCardAsync(newCard, ct);
+            versionCards.Add(newCard);
         }
 
         var removedCards = deck.Cards
@@ -123,6 +134,11 @@ public class DeckService : IDeckService
             .ToArray();
 
         _deckRepository.RemoveCards(removedCards);
+
+        deck.CurrentVersionNumber = Math.Max(1, deck.CurrentVersionNumber + 1);
+        await _deckRepository.AddDeckVersionAsync(
+            DeckVersion.CreateSnapshot(deck, versionCards, deck.CurrentVersionNumber, now, ownerId),
+            ct);
 
         await _deckRepository.SaveChangesAsync(ct);
         return true;

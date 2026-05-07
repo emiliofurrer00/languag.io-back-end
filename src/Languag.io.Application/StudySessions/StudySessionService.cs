@@ -46,16 +46,29 @@ public sealed class StudySessionService : IStudySessionService
             .Distinct()
             .ToArray();
 
-        var deckContainsCards = await _studySessionRepository.DeckContainsCardsAsync(
+        var deckVersion = await _studySessionRepository.GetDeckVersionForStudyAsync(
             command.DeckId,
-            cardIds,
+            command.DeckVersionId,
             ct);
 
-        if (!deckContainsCards)
+        if (deckVersion is null)
         {
             return new SubmitStudySessionResult(
                 SubmitStudySessionStatus.Invalid,
-                Error: "One or more responses reference cards that do not belong to the deck.");
+                Error: "Deck version was not found.");
+        }
+
+        var deckVersionCards = await _studySessionRepository.GetDeckVersionCardReferencesAsync(
+            deckVersion.DeckVersionId,
+            cardIds,
+            ct);
+        var deckVersionCardsBySubmittedId = BuildSubmittedCardLookup(deckVersionCards);
+
+        if (cardIds.Any(cardId => !deckVersionCardsBySubmittedId.ContainsKey(cardId)))
+        {
+            return new SubmitStudySessionResult(
+                SubmitStudySessionStatus.Invalid,
+                Error: "One or more responses reference cards that do not belong to the deck version.");
         }
 
         var now = DateTime.UtcNow;
@@ -64,18 +77,25 @@ public sealed class StudySessionService : IStudySessionService
         {
             Id = Guid.NewGuid(),
             DeckId = command.DeckId,
+            DeckVersionId = deckVersion.DeckVersionId,
             UserId = userId,
             CreatedAtUtc = now,
             PercentageCorrect = decimal.Round(command.PercentageCorrect, 2),
-            Responses = command.Responses.Select(response => new StudySessionResponse
-            {
-                Id = Guid.NewGuid(),
-                StudySessionId = Guid.Empty,
-                DeckId = command.DeckId,
-                CardId = response.CardId,
-                UserId = userId,
-                WasCorrect = response.WasCorrect
-            }).ToList()
+            Responses = command.Responses.Select(response =>
+                {
+                    var deckVersionCard = deckVersionCardsBySubmittedId[response.CardId];
+                    return new StudySessionResponse
+                    {
+                        Id = Guid.NewGuid(),
+                        StudySessionId = Guid.Empty,
+                        DeckId = command.DeckId,
+                        CardId = deckVersionCard.ReviewCardId,
+                        DeckVersionCardId = deckVersionCard.DeckVersionCardId,
+                        UserId = userId,
+                        WasCorrect = response.WasCorrect
+                    };
+                })
+                .ToList()
         };
 
         foreach (var response in studySession.Responses)
@@ -102,7 +122,7 @@ public sealed class StudySessionService : IStudySessionService
                 ct);
         }
 
-        await UpdateReviewStatesAsync(command, userId, now, ct);
+        await UpdateReviewStatesAsync(command, userId, now, deckVersionCardsBySubmittedId, ct);
         await _studySessionRepository.SaveChangesAsync(ct);
 
         return new SubmitStudySessionResult(
@@ -145,10 +165,25 @@ public sealed class StudySessionService : IStudySessionService
         SubmitStudySessionCommand command,
         Guid userId,
         DateTime now,
+        IReadOnlyDictionary<Guid, DeckVersionCardStudyReference> deckVersionCardsBySubmittedId,
         CancellationToken ct)
     {
-        var cardIds = command.Responses
-            .Select(response => response.CardId)
+        var reviewableResponses = command.Responses
+            .Select(response => new
+            {
+                Response = response,
+                DeckVersionCard = deckVersionCardsBySubmittedId[response.CardId]
+            })
+            .Where(item => item.DeckVersionCard.ReviewCardId.HasValue)
+            .ToArray();
+
+        if (reviewableResponses.Length == 0)
+        {
+            return;
+        }
+
+        var cardIds = reviewableResponses
+            .Select(item => item.DeckVersionCard.ReviewCardId!.Value)
             .Distinct()
             .ToArray();
 
@@ -161,29 +196,46 @@ public sealed class StudySessionService : IStudySessionService
         var statesByCardId = existingStates.ToDictionary(state => state.CardId);
         var newStates = new List<CardReviewState>();
 
-        foreach (var response in command.Responses)
+        foreach (var item in reviewableResponses)
         {
-            if (!statesByCardId.TryGetValue(response.CardId, out var state))
+            var cardId = item.DeckVersionCard.ReviewCardId!.Value;
+            if (!statesByCardId.TryGetValue(cardId, out var state))
             {
                 state = new CardReviewState
                 {
                     UserId = userId,
                     DeckId = command.DeckId,
-                    CardId = response.CardId,
+                    CardId = cardId,
                     DueAtUtc = now,
                     EaseFactor = 2.5m
                 };
-                statesByCardId.Add(response.CardId, state);
+                statesByCardId.Add(cardId, state);
                 newStates.Add(state);
             }
 
-            ApplyReviewResult(state, response.WasCorrect, now);
+            ApplyReviewResult(state, item.Response.WasCorrect, now);
         }
 
         if (newStates.Count > 0)
         {
             await _studySessionRepository.AddReviewStatesAsync(newStates, ct);
         }
+    }
+
+    private static Dictionary<Guid, DeckVersionCardStudyReference> BuildSubmittedCardLookup(
+        IReadOnlyCollection<DeckVersionCardStudyReference> deckVersionCards)
+    {
+        var lookup = new Dictionary<Guid, DeckVersionCardStudyReference>();
+        foreach (var deckVersionCard in deckVersionCards)
+        {
+            lookup.TryAdd(deckVersionCard.DeckVersionCardId, deckVersionCard);
+            if (deckVersionCard.OriginalCardId.HasValue)
+            {
+                lookup.TryAdd(deckVersionCard.OriginalCardId.Value, deckVersionCard);
+            }
+        }
+
+        return lookup;
     }
 
     private static void ApplyReviewResult(CardReviewState state, bool wasCorrect, DateTime now)
