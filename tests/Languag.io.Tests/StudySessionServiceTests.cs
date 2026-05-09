@@ -11,7 +11,8 @@ public sealed class StudySessionServiceTests
     {
         var repository = new CapturingStudySessionRepository();
         var activityLogRepository = new CapturingActivityLogRepository();
-        var service = new StudySessionService(repository, activityLogRepository);
+        var now = new DateTime(2026, 5, 9, 12, 0, 0, DateTimeKind.Utc);
+        var service = CreateService(repository, activityLogRepository, now);
         var userId = Guid.NewGuid();
         var deckId = Guid.NewGuid();
         var cardId = Guid.NewGuid();
@@ -20,7 +21,7 @@ public sealed class StudySessionServiceTests
             new SubmitStudySessionCommand(
                 deckId,
                 null,
-                100m,
+                0m,
                 [
                     new SubmitStudySessionResponseCommand(cardId, true)
                 ]),
@@ -33,6 +34,7 @@ public sealed class StudySessionServiceTests
         Assert.Equal(deckId, repository.AddedStudySession!.DeckId);
         Assert.Equal(repository.DefaultDeckVersionId, repository.AddedStudySession.DeckVersionId);
         Assert.Equal(userId, repository.AddedStudySession.UserId);
+        Assert.Equal(now, repository.AddedStudySession.CreatedAtUtc);
         Assert.Equal(100m, repository.AddedStudySession.PercentageCorrect);
 
         var response = Assert.Single(repository.AddedStudySession.Responses);
@@ -59,8 +61,8 @@ public sealed class StudySessionServiceTests
         Assert.Equal(0, reviewState.LapseCount);
         Assert.Equal(1, reviewState.TotalReviews);
         Assert.Equal(1, reviewState.CorrectReviews);
-        Assert.NotNull(reviewState.LastReviewedAtUtc);
-        Assert.True(reviewState.DueAtUtc > reviewState.LastReviewedAtUtc);
+        Assert.Equal(now, reviewState.LastReviewedAtUtc);
+        Assert.Equal(now.AddDays(1), reviewState.DueAtUtc);
     }
 
     [Fact]
@@ -71,7 +73,7 @@ public sealed class StudySessionServiceTests
             UserHasStudySessionsResult = true
         };
         var activityLogRepository = new CapturingActivityLogRepository();
-        var service = new StudySessionService(repository, activityLogRepository);
+        var service = CreateService(repository, activityLogRepository);
 
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
@@ -79,13 +81,49 @@ public sealed class StudySessionServiceTests
                 null,
                 80m,
                 [
-                    new SubmitStudySessionResponseCommand(Guid.NewGuid(), true)
+                    new SubmitStudySessionResponseCommand(Guid.NewGuid(), false)
                 ]),
             Guid.NewGuid());
 
         Assert.Equal(SubmitStudySessionStatus.Created, result.Status);
         var activity = Assert.Single(activityLogRepository.AddedLogs);
         Assert.Equal(ActivityType.DeckStudySessionCompleted, activity.Type);
+    }
+
+    [Fact]
+    public async Task SubmitAsync_ReturnsInvalidWhenDuplicateLogicalCardsAreSubmitted()
+    {
+        var deckVersionCardId = Guid.NewGuid();
+        var originalCardId = Guid.NewGuid();
+        var repository = new CapturingStudySessionRepository
+        {
+            DeckVersionCardReferences =
+            [
+                new DeckVersionCardStudyReference(
+                    deckVersionCardId,
+                    originalCardId,
+                    originalCardId)
+            ]
+        };
+        var activityLogRepository = new CapturingActivityLogRepository();
+        var service = CreateService(repository, activityLogRepository);
+
+        var result = await service.SubmitAsync(
+            new SubmitStudySessionCommand(
+                Guid.NewGuid(),
+                null,
+                50m,
+                [
+                    new SubmitStudySessionResponseCommand(deckVersionCardId, true),
+                    new SubmitStudySessionResponseCommand(originalCardId, false)
+                ]),
+            Guid.NewGuid());
+
+        Assert.Equal(SubmitStudySessionStatus.Invalid, result.Status);
+        Assert.Equal("A study session cannot include duplicate responses for the same card.", result.Error);
+        Assert.Null(repository.AddedStudySession);
+        Assert.False(repository.SaveChangesCalled);
+        Assert.Empty(activityLogRepository.AddedLogs);
     }
 
     [Fact]
@@ -96,7 +134,7 @@ public sealed class StudySessionServiceTests
             DeckContainsCardsResult = false
         };
         var activityLogRepository = new CapturingActivityLogRepository();
-        var service = new StudySessionService(repository, activityLogRepository);
+        var service = CreateService(repository, activityLogRepository);
 
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
@@ -121,7 +159,7 @@ public sealed class StudySessionServiceTests
             CanAccessDeckResult = false
         };
         var activityLogRepository = new CapturingActivityLogRepository();
-        var service = new StudySessionService(repository, activityLogRepository);
+        var service = CreateService(repository, activityLogRepository);
 
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
@@ -160,7 +198,7 @@ public sealed class StudySessionServiceTests
         {
             ReviewStates = [existingState]
         };
-        var service = new StudySessionService(repository, new CapturingActivityLogRepository());
+        var service = CreateService(repository, new CapturingActivityLogRepository());
 
         var result = await service.SubmitAsync(
             new SubmitStudySessionCommand(
@@ -183,6 +221,18 @@ public sealed class StudySessionServiceTests
         Assert.Equal(3, existingState.CorrectReviews);
     }
 
+    private static StudySessionService CreateService(
+        CapturingStudySessionRepository repository,
+        CapturingActivityLogRepository activityLogRepository,
+        DateTime? now = null)
+    {
+        return new StudySessionService(
+            repository,
+            activityLogRepository,
+            new TestClock(now ?? new DateTime(2026, 5, 9, 12, 0, 0, DateTimeKind.Utc)),
+            new CardReviewScheduler());
+    }
+
     private sealed class CapturingStudySessionRepository : IStudySessionRepository
     {
         public Guid DefaultDeckVersionId { get; } = Guid.NewGuid();
@@ -194,6 +244,7 @@ public sealed class StudySessionServiceTests
         public StudySession? AddedStudySession { get; private set; }
         public List<CardReviewState> ReviewStates { get; init; } = [];
         public List<CardReviewState> AddedReviewStates { get; } = [];
+        public IReadOnlyList<DeckVersionCardStudyReference>? DeckVersionCardReferences { get; init; }
 
         public Task<bool> CanAccessDeckAsync(Guid deckId, Guid userId, CancellationToken ct = default)
         {
@@ -218,7 +269,7 @@ public sealed class StudySessionServiceTests
         {
             return Task.FromResult<IReadOnlyList<DeckVersionCardStudyReference>>(
                 DeckContainsCardsResult
-                    ? submittedCardIds
+                    ? DeckVersionCardReferences ?? submittedCardIds
                         .Distinct()
                         .Select(cardId => new DeckVersionCardStudyReference(
                             DeckVersionCardId: cardId,

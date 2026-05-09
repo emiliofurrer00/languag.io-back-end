@@ -1,5 +1,6 @@
 using Languag.io.Application.AiDeckGeneration;
 using Languag.io.Application.AiSagaGeneration;
+using Languag.io.Application.Common;
 using Languag.io.Application.Decks;
 using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
@@ -15,6 +16,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddSingleton<ICardReviewScheduler, CardReviewScheduler>();
         services.AddScoped<IAiDeckGenerationService, AiDeckGenerationService>();
         services.AddScoped<IAiSagaGenerationService, AiSagaGenerationService>();
         services.AddScoped<IDeckService, DeckService>();
