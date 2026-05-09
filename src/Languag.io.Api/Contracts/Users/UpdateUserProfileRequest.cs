@@ -15,6 +15,9 @@ public sealed class UpdateUserProfileRequest
     [Range(0, int.MaxValue)]
     public int DailyCardsGoal { get; set; }
 
+    [StringLength(100)]
+    public string? TimeZoneId { get; set; }
+
     [StringLength(20)]
     public string AvatarColor { get; set; } = "teal";
 

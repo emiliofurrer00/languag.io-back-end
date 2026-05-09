@@ -1,5 +1,6 @@
 using Languag.io.Application.Feed;
 using Languag.io.Application.Friends;
+using Languag.io.Application.Common;
 using Languag.io.Application.Users;
 using Languag.io.Domain.Entities;
 using Languag.io.Domain.Enums;
@@ -20,11 +21,16 @@ public sealed class FeedRepository : IFeedRepository
 
     private readonly AppDbContext _dbContext;
     private readonly IProfilePictureUrlBuilder _profilePictureUrlBuilder;
+    private readonly IClock _clock;
 
-    public FeedRepository(AppDbContext dbContext, IProfilePictureUrlBuilder profilePictureUrlBuilder)
+    public FeedRepository(
+        AppDbContext dbContext,
+        IProfilePictureUrlBuilder profilePictureUrlBuilder,
+        IClock clock)
     {
         _dbContext = dbContext;
         _profilePictureUrlBuilder = profilePictureUrlBuilder;
+        _clock = clock;
     }
 
     public async Task<FeedDto?> GetFeedAsync(Guid currentUserId, CancellationToken ct = default)
@@ -35,7 +41,8 @@ public sealed class FeedRepository : IFeedRepository
             .Select(existingUser => new
             {
                 existingUser.Id,
-                existingUser.DailyCardsGoal
+                existingUser.DailyCardsGoal,
+                existingUser.TimeZoneId
             })
             .SingleOrDefaultAsync(ct);
 
@@ -44,9 +51,11 @@ public sealed class FeedRepository : IFeedRepository
             return null;
         }
 
-        var now = DateTime.UtcNow;
-        var todayStart = now.Date;
-        var tomorrowStart = todayStart.AddDays(1);
+        var now = _clock.UtcNow;
+        var timeZone = UserTimeZones.FindOrDefault(user.TimeZoneId);
+        var todayLocal = UserTimeZones.GetLocalDate(now, timeZone);
+        var todayStart = UserTimeZones.LocalDateStartToUtc(todayLocal, timeZone);
+        var tomorrowStart = UserTimeZones.LocalDateStartToUtc(todayLocal.AddDays(1), timeZone);
 
         var completedCardsToday = await _dbContext.StudySessionResponses
             .AsNoTracking()
@@ -68,12 +77,12 @@ public sealed class FeedRepository : IFeedRepository
             .ToListAsync(ct);
 
         var studiedDays = studySessionTimestamps
-            .Select(timestamp => timestamp.Date)
+            .Select(timestamp => UserTimeZones.GetLocalDate(timestamp, timeZone))
             .ToHashSet();
 
         var streak = new FeedStreakDto(
-            Current: CalculateCurrentStreak(studiedDays, todayStart),
-            Days: BuildWeekDays(studiedDays, todayStart));
+            Current: CalculateCurrentStreak(studiedDays, todayLocal),
+            Days: BuildWeekDays(studiedDays, todayLocal));
 
         var summary = new FeedSummaryDto(
             League: null,
@@ -84,7 +93,7 @@ public sealed class FeedRepository : IFeedRepository
                 .AsNoTracking()
                 .CountAsync(response => response.UserId == currentUserId, ct));
 
-        var continueStudying = await BuildContinueStudyingAsync(currentUserId, now, ct);
+        var continueStudying = await BuildContinueStudyingAsync(currentUserId, now, timeZone, ct);
         var friendIds = await GetFriendIdsAsync(currentUserId, ct);
         var friendsActivity = await BuildFriendsActivityAsync(friendIds, now, ct);
         var excludedSuggestedUserIds = await BuildExcludedSuggestedUserIdsAsync(currentUserId, friendIds, ct);
@@ -104,6 +113,7 @@ public sealed class FeedRepository : IFeedRepository
     private async Task<IReadOnlyList<FeedContinueStudyingDeckDto>> BuildContinueStudyingAsync(
         Guid currentUserId,
         DateTime now,
+        TimeZoneInfo timeZone,
         CancellationToken ct)
     {
         var recentSessions = await _dbContext.StudySessions
@@ -132,7 +142,7 @@ public sealed class FeedRepository : IFeedRepository
                 Cards: studySession.Cards,
                 Progress: ClampPercentage(studySession.PercentageCorrect),
                 Color: ToColorClass(studySession.DeckColor, "yellow"),
-                LastStudied: FormatStudyRecency(studySession.CreatedAtUtc, now),
+                LastStudied: FormatStudyRecency(studySession.CreatedAtUtc, now, timeZone),
                 LastStudiedAtUtc: studySession.CreatedAtUtc))
             .ToArray();
     }
@@ -489,15 +499,16 @@ public sealed class FeedRepository : IFeedRepository
         return value.ToString("MMM d");
     }
 
-    private static string FormatStudyRecency(DateTime value, DateTime now)
+    private static string FormatStudyRecency(DateTime value, DateTime now, TimeZoneInfo timeZone)
     {
-        var today = now.Date;
-        if (value.Date == today)
+        var today = UserTimeZones.GetLocalDate(now, timeZone);
+        var valueDate = UserTimeZones.GetLocalDate(value, timeZone);
+        if (valueDate == today)
         {
             return "Today";
         }
 
-        if (value.Date == today.AddDays(-1))
+        if (valueDate == today.AddDays(-1))
         {
             return "Yesterday";
         }

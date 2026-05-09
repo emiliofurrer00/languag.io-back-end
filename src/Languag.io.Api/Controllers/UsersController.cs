@@ -107,7 +107,8 @@ public sealed class UsersController : ControllerBase
                 request.AvatarColor,
                 request.ProfileDescription,
                 request.About,
-                request.IsPublicProfile),
+                request.IsPublicProfile,
+                request.TimeZoneId),
             ct);
 
         return result.Status switch
