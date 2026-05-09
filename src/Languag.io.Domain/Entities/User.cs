@@ -11,6 +11,7 @@ public class User
     public DateTime UpdatedAtUtc { get; set; }
     public bool HasBeenOnboarded { get; set; }
     public int DailyCardsGoal { get; set; }
+    public string TimeZoneId { get; set; } = "UTC";
     public string AvatarColor { get; set; } = "teal";
     public string? ProfilePictureObjectKey { get; set; }
     public string ProfileDescription { get; set; } = string.Empty;

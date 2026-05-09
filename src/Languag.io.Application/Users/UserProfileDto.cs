@@ -16,4 +16,5 @@ public sealed record UserProfileDto(
     bool IsPublicProfile,
     DateTime CreatedAtUtc,
     IReadOnlyList<UserProfileActivityDto>? RecentActivity = null,
-    UserProfileStatsDto? Stats = null);
+    UserProfileStatsDto? Stats = null,
+    string TimeZoneId = "UTC");

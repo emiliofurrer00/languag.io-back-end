@@ -1,3 +1,5 @@
+using Languag.io.Application.Common;
+
 namespace Languag.io.Application.Users;
 
 public sealed class UserProfileService : IUserProfileService
@@ -41,6 +43,10 @@ public sealed class UserProfileService : IUserProfileService
     public Task<UpdateUserProfileResult> UpdateAsync(UpdateUserProfileCommand command, CancellationToken ct = default)
     {
         var normalizedUsername = NormalizeUsername(command.Username);
+        var normalizedTimeZoneId = command.TimeZoneId is null
+            ? null
+            : UserTimeZones.NormalizeOrDefault(command.TimeZoneId);
+
         if (command.HasBeenOnboarded && normalizedUsername is null)
         {
             return Task.FromResult(new UpdateUserProfileResult(
@@ -48,10 +54,18 @@ public sealed class UserProfileService : IUserProfileService
                 Error: "A username is required before marking onboarding as complete."));
         }
 
+        if (normalizedTimeZoneId is not null && !UserTimeZones.IsValid(normalizedTimeZoneId))
+        {
+            return Task.FromResult(new UpdateUserProfileResult(
+                UpdateUserProfileStatus.Invalid,
+                Error: "TimeZoneId must be a valid system time zone id."));
+        }
+
         var normalizedCommand = command with
         {
             Username = normalizedUsername,
             Name = NormalizeOptionalText(command.Name),
+            TimeZoneId = normalizedTimeZoneId,
             AvatarColor = NormalizeAvatarColor(command.AvatarColor),
             ProfileDescription = command.ProfileDescription.Trim(),
             About = command.About.Trim()

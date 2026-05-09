@@ -1,4 +1,5 @@
 using Languag.io.Application.Users;
+using Languag.io.Application.Common;
 using Languag.io.Domain.Entities;
 using Languag.io.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -10,11 +11,16 @@ public sealed class UserProfileRepository : IUserProfileRepository
 {
     private readonly AppDbContext _dbContext;
     private readonly IProfilePictureUrlBuilder _profilePictureUrlBuilder;
+    private readonly IClock _clock;
 
-    public UserProfileRepository(AppDbContext dbContext, IProfilePictureUrlBuilder profilePictureUrlBuilder)
+    public UserProfileRepository(
+        AppDbContext dbContext,
+        IProfilePictureUrlBuilder profilePictureUrlBuilder,
+        IClock clock)
     {
         _dbContext = dbContext;
         _profilePictureUrlBuilder = profilePictureUrlBuilder;
+        _clock = clock;
     }
 
     public async Task<UserProfileDto?> GetByIdAsync(Guid userId, CancellationToken ct = default)
@@ -59,7 +65,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
         return profile with
         {
             RecentActivity = await ReadRecentActivityAsync(profile.Id, ct),
-            Stats = await ReadStatsAsync(profile.Id, ct)
+            Stats = await ReadStatsAsync(profile.Id, user.TimeZoneId, ct)
         };
     }
 
@@ -84,11 +90,16 @@ public sealed class UserProfileRepository : IUserProfileRepository
         user.Name = command.Name;
         user.HasBeenOnboarded = command.HasBeenOnboarded;
         user.DailyCardsGoal = command.DailyCardsGoal;
+        if (command.TimeZoneId is not null)
+        {
+            user.TimeZoneId = command.TimeZoneId;
+        }
+
         user.AvatarColor = command.AvatarColor;
         user.ProfileDescription = command.ProfileDescription;
         user.About = command.About;
         user.IsPublicProfile = command.IsPublicProfile;
-        user.UpdatedAtUtc = DateTime.UtcNow;
+        user.UpdatedAtUtc = _clock.UtcNow;
 
         try
         {
@@ -116,7 +127,7 @@ public sealed class UserProfileRepository : IUserProfileRepository
 
         var previousObjectKey = user.ProfilePictureObjectKey;
         user.ProfilePictureObjectKey = objectKey;
-        user.UpdatedAtUtc = DateTime.UtcNow;
+        user.UpdatedAtUtc = _clock.UtcNow;
 
         await _dbContext.SaveChangesAsync(ct);
 
@@ -151,10 +162,14 @@ public sealed class UserProfileRepository : IUserProfileRepository
             user.IsPublicProfile,
             user.CreatedAtUtc,
             await ReadRecentActivityAsync(user.Id, ct),
-            await ReadStatsAsync(user.Id, ct));
+            await ReadStatsAsync(user.Id, user.TimeZoneId, ct),
+            user.TimeZoneId);
     }
 
-    private async Task<UserProfileStatsDto> ReadStatsAsync(Guid userId, CancellationToken ct)
+    private async Task<UserProfileStatsDto> ReadStatsAsync(
+        Guid userId,
+        string timeZoneId,
+        CancellationToken ct)
     {
         var decksCreated = await _dbContext.Decks
             .AsNoTracking()
@@ -168,11 +183,42 @@ public sealed class UserProfileRepository : IUserProfileRepository
             .AsNoTracking()
             .CountAsync(studySession => studySession.UserId == userId && studySession.PercentageCorrect == 100m, ct);
 
+        var studySessionTimestamps = await _dbContext.StudySessions
+            .AsNoTracking()
+            .Where(studySession => studySession.UserId == userId)
+            .Select(studySession => studySession.CreatedAtUtc)
+            .ToListAsync(ct);
+
+        var timeZone = UserTimeZones.FindOrDefault(timeZoneId);
+        var todayLocal = UserTimeZones.GetLocalDate(_clock.UtcNow, timeZone);
+        var studiedDays = studySessionTimestamps
+            .Select(timestamp => UserTimeZones.GetLocalDate(timestamp, timeZone))
+            .ToHashSet();
+
         return new UserProfileStatsDto(
             DecksCreated: decksCreated,
             CardsStudied: cardsStudied,
             MasteredDecks: masteredDecks,
-            StudyStreakDays: 0);
+            StudyStreakDays: CalculateCurrentStreak(studiedDays, todayLocal));
+    }
+
+    private static int CalculateCurrentStreak(HashSet<DateTime> studiedDays, DateTime today)
+    {
+        if (studiedDays.Count == 0)
+        {
+            return 0;
+        }
+
+        var streak = 0;
+        var cursor = studiedDays.Contains(today) ? today : today.AddDays(-1);
+
+        while (studiedDays.Contains(cursor))
+        {
+            streak++;
+            cursor = cursor.AddDays(-1);
+        }
+
+        return streak;
     }
 
     private async Task<IReadOnlyList<UserProfileActivityDto>> ReadRecentActivityAsync(Guid userId, CancellationToken ct)
