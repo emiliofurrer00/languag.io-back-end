@@ -1,4 +1,5 @@
 using Languag.io.Application.ActivityLogs;
+using Languag.io.Application.Common;
 using Languag.io.Domain.Entities;
 
 namespace Languag.io.Application.StudySessions;
@@ -7,13 +8,19 @@ public sealed class StudySessionService : IStudySessionService
 {
     private readonly IStudySessionRepository _studySessionRepository;
     private readonly IActivityLogRepository _activityLogRepository;
+    private readonly IClock _clock;
+    private readonly ICardReviewScheduler _cardReviewScheduler;
 
     public StudySessionService(
         IStudySessionRepository studySessionRepository,
-        IActivityLogRepository activityLogRepository)
+        IActivityLogRepository activityLogRepository,
+        IClock clock,
+        ICardReviewScheduler cardReviewScheduler)
     {
         _studySessionRepository = studySessionRepository;
         _activityLogRepository = activityLogRepository;
+        _clock = clock;
+        _cardReviewScheduler = cardReviewScheduler;
     }
 
     public async Task<SubmitStudySessionResult> SubmitAsync(
@@ -21,13 +28,6 @@ public sealed class StudySessionService : IStudySessionService
         Guid userId,
         CancellationToken ct = default)
     {
-        if (command.PercentageCorrect < 0m || command.PercentageCorrect > 100m)
-        {
-            return new SubmitStudySessionResult(
-                SubmitStudySessionStatus.Invalid,
-                Error: "PercentageCorrect must be between 0 and 100.");
-        }
-
         if (command.Responses.Count == 0)
         {
             return new SubmitStudySessionResult(
@@ -71,7 +71,22 @@ public sealed class StudySessionService : IStudySessionService
                 Error: "One or more responses reference cards that do not belong to the deck version.");
         }
 
-        var now = DateTime.UtcNow;
+        var resolvedResponses = command.Responses
+            .Select(response => new ResolvedStudyResponse(
+                response,
+                deckVersionCardsBySubmittedId[response.CardId]))
+            .ToArray();
+
+        if (resolvedResponses
+            .GroupBy(item => item.DeckVersionCard.DeckVersionCardId)
+            .Any(group => group.Count() > 1))
+        {
+            return new SubmitStudySessionResult(
+                SubmitStudySessionStatus.Invalid,
+                Error: "A study session cannot include duplicate responses for the same card.");
+        }
+
+        var now = _clock.UtcNow;
         var isFirstStudySession = !await _studySessionRepository.UserHasStudySessionsAsync(userId, ct);
         var studySession = new StudySession
         {
@@ -80,19 +95,18 @@ public sealed class StudySessionService : IStudySessionService
             DeckVersionId = deckVersion.DeckVersionId,
             UserId = userId,
             CreatedAtUtc = now,
-            PercentageCorrect = decimal.Round(command.PercentageCorrect, 2),
-            Responses = command.Responses.Select(response =>
+            PercentageCorrect = CalculatePercentageCorrect(command.Responses),
+            Responses = resolvedResponses.Select(item =>
                 {
-                    var deckVersionCard = deckVersionCardsBySubmittedId[response.CardId];
                     return new StudySessionResponse
                     {
                         Id = Guid.NewGuid(),
                         StudySessionId = Guid.Empty,
                         DeckId = command.DeckId,
-                        CardId = deckVersionCard.ReviewCardId,
-                        DeckVersionCardId = deckVersionCard.DeckVersionCardId,
+                        CardId = item.DeckVersionCard.ReviewCardId,
+                        DeckVersionCardId = item.DeckVersionCard.DeckVersionCardId,
                         UserId = userId,
-                        WasCorrect = response.WasCorrect
+                        WasCorrect = item.Response.WasCorrect
                     };
                 })
                 .ToList()
@@ -122,7 +136,7 @@ public sealed class StudySessionService : IStudySessionService
                 ct);
         }
 
-        await UpdateReviewStatesAsync(command, userId, now, deckVersionCardsBySubmittedId, ct);
+        await UpdateReviewStatesAsync(command.DeckId, userId, now, resolvedResponses, ct);
         await _studySessionRepository.SaveChangesAsync(ct);
 
         return new SubmitStudySessionResult(
@@ -144,7 +158,7 @@ public sealed class StudySessionService : IStudySessionService
         return await _studySessionRepository.GetDeckStudyPlanAsync(
             deckId,
             userId,
-            DateTime.UtcNow,
+            _clock.UtcNow,
             NormalizeLimit(limit),
             ct);
     }
@@ -156,24 +170,19 @@ public sealed class StudySessionService : IStudySessionService
     {
         return _studySessionRepository.GetStudyRecommendationsAsync(
             userId,
-            DateTime.UtcNow,
+            _clock.UtcNow,
             NormalizeLimit(limit),
             ct);
     }
 
     private async Task UpdateReviewStatesAsync(
-        SubmitStudySessionCommand command,
+        Guid deckId,
         Guid userId,
         DateTime now,
-        IReadOnlyDictionary<Guid, DeckVersionCardStudyReference> deckVersionCardsBySubmittedId,
+        IReadOnlyCollection<ResolvedStudyResponse> resolvedResponses,
         CancellationToken ct)
     {
-        var reviewableResponses = command.Responses
-            .Select(response => new
-            {
-                Response = response,
-                DeckVersionCard = deckVersionCardsBySubmittedId[response.CardId]
-            })
+        var reviewableResponses = resolvedResponses
             .Where(item => item.DeckVersionCard.ReviewCardId.HasValue)
             .ToArray();
 
@@ -189,7 +198,7 @@ public sealed class StudySessionService : IStudySessionService
 
         var existingStates = await _studySessionRepository.GetReviewStatesAsync(
             userId,
-            command.DeckId,
+            deckId,
             cardIds,
             ct);
 
@@ -204,7 +213,7 @@ public sealed class StudySessionService : IStudySessionService
                 state = new CardReviewState
                 {
                     UserId = userId,
-                    DeckId = command.DeckId,
+                    DeckId = deckId,
                     CardId = cardId,
                     DueAtUtc = now,
                     EaseFactor = 2.5m
@@ -213,7 +222,7 @@ public sealed class StudySessionService : IStudySessionService
                 newStates.Add(state);
             }
 
-            ApplyReviewResult(state, item.Response.WasCorrect, now);
+            _cardReviewScheduler.ApplyReviewResult(state, item.Response.WasCorrect, now);
         }
 
         if (newStates.Count > 0)
@@ -238,34 +247,10 @@ public sealed class StudySessionService : IStudySessionService
         return lookup;
     }
 
-    private static void ApplyReviewResult(CardReviewState state, bool wasCorrect, DateTime now)
+    private static decimal CalculatePercentageCorrect(IReadOnlyCollection<SubmitStudySessionResponseCommand> responses)
     {
-        if (!wasCorrect)
-        {
-            state.RepetitionCount = 0;
-            state.LapseCount++;
-            state.IntervalDays = 1;
-            state.EaseFactor = Math.Max(1.3m, state.EaseFactor - 0.2m);
-        }
-        else
-        {
-            state.RepetitionCount++;
-            state.IntervalDays = state.RepetitionCount switch
-            {
-                1 => 1,
-                2 => 3,
-                _ => Math.Max(1, (int)Math.Round(state.IntervalDays * state.EaseFactor))
-            };
-            state.EaseFactor = Math.Min(3.0m, state.EaseFactor + 0.05m);
-        }
-
-        state.LastReviewedAtUtc = now;
-        state.DueAtUtc = now.AddDays(state.IntervalDays);
-        state.TotalReviews++;
-        if (wasCorrect)
-        {
-            state.CorrectReviews++;
-        }
+        var correctCount = responses.Count(response => response.WasCorrect);
+        return decimal.Round(correctCount * 100m / responses.Count, 2);
     }
 
     private static int NormalizeLimit(int limit)
@@ -289,4 +274,8 @@ public sealed class StudySessionService : IStudySessionService
             CreatedAtUtc = occurredAtUtc
         };
     }
+
+    private sealed record ResolvedStudyResponse(
+        SubmitStudySessionResponseCommand Response,
+        DeckVersionCardStudyReference DeckVersionCard);
 }

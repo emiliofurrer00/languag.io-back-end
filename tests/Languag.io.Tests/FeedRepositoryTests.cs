@@ -16,8 +16,8 @@ public sealed class FeedRepositoryTests
     public async Task GetFeedAsync_BuildsFeedFromPersistedData()
     {
         await using var context = await CreateContextAsync();
-        var repository = new FeedRepository(context, new StubProfilePictureUrlBuilder());
         var now = DateTime.UtcNow.Date.AddHours(12);
+        var repository = new FeedRepository(context, new StubProfilePictureUrlBuilder(), new TestClock(now));
 
         var currentUser = CreateUser("current", "currentuser");
         currentUser.DailyCardsGoal = 20;
@@ -183,6 +183,80 @@ public sealed class FeedRepositoryTests
         var suggestedDeck = Assert.Single(feed.SuggestedDecks);
         Assert.Equal(friendDeck.Id, suggestedDeck.Id);
         Assert.Equal("Spanish Basics", suggestedDeck.Title);
+    }
+
+    [Fact]
+    public async Task GetFeedAsync_UsesUserTimeZoneForDailyGoalAndStreak()
+    {
+        await using var context = await CreateContextAsync();
+        var now = new DateTime(2026, 5, 10, 2, 0, 0, DateTimeKind.Utc);
+        var repository = new FeedRepository(context, new StubProfilePictureUrlBuilder(), new TestClock(now));
+
+        var currentUser = CreateUser("current", "currentuser");
+        currentUser.DailyCardsGoal = 2;
+        currentUser.TimeZoneId = "America/Buenos_Aires";
+
+        var deck = new Deck
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = currentUser.Id,
+            Title = "Spanish Basics",
+            Category = "Language",
+            Color = "teal",
+            Visibility = DeckVisibility.Private,
+            CreatedAtUtc = now.AddDays(-3),
+            UpdatedAtUtc = now.AddDays(-1)
+        };
+        var card = new Card
+        {
+            Id = Guid.NewGuid(),
+            DeckId = deck.Id,
+            FrontText = "hola",
+            BackText = "hello",
+            Order = 0,
+            CreatedAtUtc = now.AddDays(-3),
+            UpdatedAtUtc = now.AddDays(-3)
+        };
+        deck.Cards.Add(card);
+
+        var todayLocalSession = new StudySession
+        {
+            Id = Guid.NewGuid(),
+            DeckId = deck.Id,
+            UserId = currentUser.Id,
+            CreatedAtUtc = new DateTime(2026, 5, 10, 1, 0, 0, DateTimeKind.Utc),
+            PercentageCorrect = 100m
+        };
+        var yesterdayLocalSession = new StudySession
+        {
+            Id = Guid.NewGuid(),
+            DeckId = deck.Id,
+            UserId = currentUser.Id,
+            CreatedAtUtc = new DateTime(2026, 5, 9, 1, 0, 0, DateTimeKind.Utc),
+            PercentageCorrect = 100m
+        };
+
+        context.Users.Add(currentUser);
+        context.Decks.Add(deck);
+        context.StudySessions.AddRange(todayLocalSession, yesterdayLocalSession);
+        context.StudySessionResponses.Add(new StudySessionResponse
+        {
+            Id = Guid.NewGuid(),
+            StudySessionId = todayLocalSession.Id,
+            DeckId = deck.Id,
+            CardId = card.Id,
+            UserId = currentUser.Id,
+            WasCorrect = true
+        });
+        await context.SaveChangesAsync();
+
+        var feed = await repository.GetFeedAsync(currentUser.Id, CancellationToken.None);
+
+        Assert.NotNull(feed);
+        Assert.Equal(1, feed!.DailyGoal.Progress);
+        Assert.Equal(50, feed.DailyGoal.Percentage);
+        Assert.Equal(2, feed.Streak.Current);
+        Assert.Equal("Today", Assert.Single(feed.ContinueStudying).LastStudied);
     }
 
     private static async Task<AppDbContext> CreateContextAsync()

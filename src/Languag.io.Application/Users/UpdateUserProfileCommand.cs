@@ -9,4 +9,5 @@ public sealed record UpdateUserProfileCommand(
     string AvatarColor,
     string ProfileDescription,
     string About,
-    bool IsPublicProfile);
+    bool IsPublicProfile,
+    string? TimeZoneId = null);
