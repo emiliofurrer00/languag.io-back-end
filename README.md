@@ -25,11 +25,14 @@ src/
   Languag.io.Application/     Use-case services, DTOs, interfaces
   Languag.io.Domain/          Core entities and enums
   Languag.io.Infrastructure/  EF Core, repositories, migrations, S3 storage
+docs/
+  ARCHITECTURE.md             Layering, runtime flows, and project boundaries
+  ENTITIES_AND_MIGRATIONS.md  Entity, migration, and local database workflow
 tests/
   Languag.io.Tests/           Unit and integration-style tests
 ```
 
-See [Architecture](./docs/ARCHITECTURE.md) for a deeper explanation of the layering and runtime flows.
+See [Architecture](./docs/ARCHITECTURE.md) for a deeper explanation of the layering and runtime flows. See [Entities And Migrations](./docs/ENTITIES_AND_MIGRATIONS.md) for the local EF Core workflow when adding tables, relationships, indexes, seed data, or data backfills.
 
 ## Getting Started
 
@@ -62,12 +65,20 @@ If you need a quick local PostgreSQL container:
 docker run --name languagio-postgres -e POSTGRES_DB=languagio -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5433:5432 -d postgres:16
 ```
 
-Apply migrations:
+Apply migrations. From the repository root:
+
+```powershell
+dotnet ef database update --project src\Languag.io.Infrastructure --startup-project src\Languag.io.Api
+```
+
+Or, from `src/`:
 
 ```powershell
 cd C:\Users\emili\OneDrive\Escritorio\languag.io_back\src
 dotnet ef database update --project Languag.io.Infrastructure --startup-project Languag.io.Api
 ```
+
+`src/Languag.io.Api/appsettings.Development.json` currently has `ApplyMigrationsOnStartup` set to `true`, so the API also applies pending migrations when it starts in local development. Running the command explicitly is still useful when you want to check migration errors before launching the API.
 
 Set API user secrets:
 
@@ -259,7 +270,11 @@ EF Core migrations run during API startup in `Program.cs`.
 dotnet build src\Languag.io.Api\Languag.io.Api.csproj
 dotnet test tests\Languag.io.Tests\Languag.io.Tests.csproj
 dotnet ef database update --project src\Languag.io.Infrastructure --startup-project src\Languag.io.Api
+dotnet ef migrations add AddBadges --project src\Languag.io.Infrastructure --startup-project src\Languag.io.Api
+dotnet ef migrations list --project src\Languag.io.Infrastructure --startup-project src\Languag.io.Api
 ```
+
+See [Entities And Migrations](./docs/ENTITIES_AND_MIGRATIONS.md) for the full workflow, including adding entities, reviewing generated migrations, updating local PostgreSQL, rolling back local migrations, and writing safe backfills.
 
 ## Operational Notes
 

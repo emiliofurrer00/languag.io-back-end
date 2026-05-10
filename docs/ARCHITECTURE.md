@@ -94,6 +94,8 @@ Repositories use EF Core projections to keep API responses small and avoid leaki
 
 The API currently runs pending migrations on startup. That keeps Railway deploys simple, but for larger production usage this should eventually move to an explicit migration job.
 
+For the step-by-step local workflow, see [Entities And Migrations](./ENTITIES_AND_MIGRATIONS.md).
+
 ## Profile Pictures, S3, And CloudFront
 
 The profile-picture feature splits responsibility deliberately:
@@ -168,4 +170,7 @@ The frontend must configure its API URL and CloudFront base URL. The backend mus
 3. Implement persistence or external integration in Infrastructure.
 4. Expose the use case through an API controller and request/response contract.
 5. Add or update tests.
-6. Document new environment variables or operational requirements.
+6. Add and apply an EF Core migration when the schema changes.
+7. Document new environment variables or operational requirements.
+
+See [Entities And Migrations](./ENTITIES_AND_MIGRATIONS.md) for the detailed entity, migration, and backfill checklist.
